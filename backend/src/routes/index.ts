@@ -5,6 +5,8 @@ import dentistRoutes from './dentistRoutes.js';
 import appointmentRoutes from './appointmentRoutes.js';
 import availabilityRoutes from './availabilityRoutes.js';
 import configRoutes from './configRoutes.js';
+import dentalRecordRoutes from './dentalRecordRoutes.js';
+import prescriptionRoutes from './prescriptionRoutes.js';
 
 const router = Router();
 
@@ -25,11 +27,11 @@ router.use('/dentists', dentistRoutes);
 router.use('/appointments', appointmentRoutes);
 router.use('/availability', availabilityRoutes);
 router.use('/config', configRoutes);
+router.use('/dental-records', dentalRecordRoutes);
+router.use('/prescriptions', prescriptionRoutes);
 
 // ─── Placeholder Sub-routes ──────────────────────────────────
 // These will be populated in subsequent steps:
-// router.use('/dental-records', dentalRecordRoutes);
-// router.use('/prescriptions', prescriptionRoutes);
 // router.use('/notifications', notificationRoutes);
 // router.use('/queue', queueRoutes);
 
