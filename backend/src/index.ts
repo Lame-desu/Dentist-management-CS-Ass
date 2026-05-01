@@ -5,6 +5,7 @@ import morgan from 'morgan';
 
 import env from './config/env.js';
 import { testConnection } from './config/database.js';
+import { runMigrations } from './database/migrate.js';
 import { errorHandler } from './middleware/errorHandler.js';
 import routes from './routes/index.js';
 
@@ -42,7 +43,16 @@ app.listen(PORT, '0.0.0.0', async () => {
   console.log('╚══════════════════════════════════════════════╝');
 
   // Test database connection on startup
-  await testConnection();
+  const connected = await testConnection();
+
+  // Run database migrations if connected
+  if (connected) {
+    try {
+      await runMigrations();
+    } catch (error) {
+      console.error('❌ Migration failed — server will continue but database may be incomplete.');
+    }
+  }
 });
 
 export default app;
