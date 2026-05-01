@@ -126,17 +126,29 @@ export default function AdminDashboard() {
   }
 
   const stats = data || {};
-  const statusDistribution = stats.statusDistribution || {};
+
+  // API returns user counts nested under `users`
+  const users = stats.users || {};
+  const totalPatients = users.totalPatients ?? stats.totalPatients ?? 0;
+  const totalDentists = users.totalDentists ?? stats.totalDentists ?? 0;
+  const totalReceptionists = users.totalReceptionists ?? stats.totalReceptionists ?? 0;
+
+  // todayAppointments comes as {approved: N, total: N, ...} — extract the total
+  const todayApptObj = stats.todayAppointments || {};
+  const todayAppointmentCount = typeof todayApptObj === 'number' ? todayApptObj : (todayApptObj.total ?? 0);
+
+  // statusDistribution comes as array [{status, count}, ...] — convert to segments
+  const rawStatusDist = stats.statusDistribution || [];
   const topDentists = stats.topDentists || [];
   const recentAppointments = stats.recentAppointments || [];
 
-  // Prepare chart data
-  const statusSegments = Object.entries(statusDistribution)
-    .filter(([, v]) => (v as number) > 0)
-    .map(([key, value]) => ({
-      label: key.charAt(0).toUpperCase() + key.slice(1),
-      value: value as number,
-      color: STATUS_COLORS[key] || '#9ca3af',
+  // Prepare chart data from array format
+  const statusSegments = (Array.isArray(rawStatusDist) ? rawStatusDist : Object.entries(rawStatusDist).map(([k, v]) => ({ status: k, count: v as number })))
+    .filter((s: { status: string; count: number }) => s.count > 0)
+    .map((s: { status: string; count: number }) => ({
+      label: s.status.charAt(0).toUpperCase() + s.status.slice(1),
+      value: s.count,
+      color: STATUS_COLORS[s.status] || '#9ca3af',
     }));
   const statusTotal = statusSegments.reduce((sum, s) => sum + s.value, 0);
 
@@ -173,7 +185,7 @@ export default function AdminDashboard() {
             </svg>
           }
           label="Total Patients"
-          value={stats.totalPatients ?? '—'}
+          value={totalPatients}
         />
         <StatCard
           icon={
@@ -182,7 +194,7 @@ export default function AdminDashboard() {
             </svg>
           }
           label="Total Dentists"
-          value={stats.totalDentists ?? '—'}
+          value={totalDentists}
         />
         <StatCard
           icon={
@@ -191,7 +203,7 @@ export default function AdminDashboard() {
             </svg>
           }
           label="Receptionists"
-          value={stats.totalReceptionists ?? '—'}
+          value={totalReceptionists}
         />
         <StatCard
           icon={
@@ -200,7 +212,7 @@ export default function AdminDashboard() {
             </svg>
           }
           label="Today's Appointments"
-          value={stats.todayAppointments ?? '—'}
+          value={todayAppointmentCount}
         />
       </div>
 
@@ -283,17 +295,17 @@ export default function AdminDashboard() {
             <p className="text-sm text-surface-500 dark:text-surface-400 text-center py-6">No data yet</p>
           ) : (
             <div className="space-y-3">
-              {topDentists.slice(0, 5).map((dentist: { full_name?: string; dentist_name?: string; appointment_count?: number; completed_count?: number }, i: number) => (
+              {topDentists.slice(0, 5).map((dentist: { full_name?: string; dentist_name?: string; dentistName?: string; appointment_count?: number; appointmentCount?: number; completed_count?: number }, i: number) => (
                 <div key={i} className="flex items-center justify-between rounded-lg border border-surface-200 p-3 dark:border-surface-700">
                   <div className="flex items-center gap-3">
                     <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary-100 text-sm font-bold text-primary-700 dark:bg-primary-900/30 dark:text-primary-400">
                       {i + 1}
                     </div>
                     <p className="text-sm font-medium text-surface-900 dark:text-white">
-                      Dr. {dentist.full_name || dentist.dentist_name || 'Unknown'}
+                      {dentist.full_name || dentist.dentist_name || dentist.dentistName || 'Unknown'}
                     </p>
                   </div>
-                  <Badge variant="primary">{dentist.appointment_count || dentist.completed_count || 0} appts</Badge>
+                  <Badge variant="primary">{dentist.appointment_count || dentist.appointmentCount || dentist.completed_count || 0} appts</Badge>
                 </div>
               ))}
             </div>

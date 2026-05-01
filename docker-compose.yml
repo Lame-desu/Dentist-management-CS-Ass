@@ -1,19 +1,31 @@
+# ═══════════════════════════════════════════════════════════════
+# DAMS — Dentist Appointments & Management System
+# Docker Compose — Development Environment
+# ═══════════════════════════════════════════════════════════════
+# Usage:
+#   docker-compose up --build        Build from scratch & start
+#   docker-compose down -v           Stop & wipe database volume
+#   docker-compose restart            Restart all services
+# ═══════════════════════════════════════════════════════════════
+
 services:
   # ──────────────────────────────────────────────
   # PostgreSQL 16 Database
+  # Stores all application data. A named volume
+  # persists data across container restarts.
   # ──────────────────────────────────────────────
   db:
     image: postgres:16-alpine
     container_name: dams-db
     restart: unless-stopped
     ports:
-      - "5433:5432"
+      - "5433:5432"                            # Host 5433 → Container 5432
     environment:
       POSTGRES_DB: dams
       POSTGRES_USER: dams_user
       POSTGRES_PASSWORD: dams_password
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - postgres_data:/var/lib/postgresql/data  # Persist data across restarts
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U dams_user -d dams"]
       interval: 5s
@@ -23,6 +35,8 @@ services:
 
   # ──────────────────────────────────────────────
   # Express.js Backend API
+  # Runs migrations on startup. When SEED_DB=true,
+  # also seeds demo data after migrations.
   # ──────────────────────────────────────────────
   backend:
     build:
@@ -30,22 +44,30 @@ services:
     container_name: dams-backend
     restart: unless-stopped
     ports:
-      - "5000:5000"
+      - "5000:5000"                            # API exposed on host port 5000
     environment:
       DATABASE_URL: postgresql://dams_user:dams_password@db:5432/dams
       JWT_SECRET: dams-jwt-secret-change-in-production
       NODE_ENV: development
       PORT: 5000
+      SEED_DB: "true"                          # Set to "false" in production
     depends_on:
       db:
-        condition: service_healthy
+        condition: service_healthy             # Wait for DB to be ready
     volumes:
-      - ./backend:/app
-      - /app/node_modules
+      - ./backend:/app                         # Hot-reload: mount source code
+      - /app/node_modules                      # Preserve container's node_modules
     command: npm run dev
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:5000/api/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
 
   # ──────────────────────────────────────────────
   # Next.js Frontend Application
+  # Connects to backend via NEXT_PUBLIC_API_URL.
   # ──────────────────────────────────────────────
   frontend:
     build:
@@ -53,15 +75,16 @@ services:
     container_name: dams-frontend
     restart: unless-stopped
     ports:
-      - "3000:3000"
+      - "3000:3000"                            # Web app on host port 3000
     environment:
       NEXT_PUBLIC_API_URL: http://localhost:5000/api
     depends_on:
       - backend
     volumes:
-      - ./frontend:/app
-      - /app/node_modules
+      - ./frontend:/app                        # Hot-reload: mount source code
+      - /app/node_modules                      # Preserve container's node_modules
+      - /app/.next                             # Preserve build cache
     command: npm run dev
 
 volumes:
-  postgres_data:
+  postgres_data:                               # Named volume for DB persistence
