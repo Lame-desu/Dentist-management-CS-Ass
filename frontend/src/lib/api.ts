@@ -82,6 +82,11 @@ export interface ProfileUpdatePayload {
   emergencyContact?: string;
 }
 
+export interface ChangePasswordPayload {
+  currentPassword: string;
+  newPassword: string;
+}
+
 export const authApi = {
   login: (data: LoginPayload) =>
     api.post('/auth/login', data),
@@ -94,6 +99,9 @@ export const authApi = {
 
   updateProfile: (data: ProfileUpdatePayload) =>
     api.put('/auth/profile', data),
+
+  changePassword: (data: ChangePasswordPayload) =>
+    api.put('/auth/password', data),
 };
 
 // ─── Dentist API ─────────────────────────────────────────────────
@@ -111,18 +119,71 @@ export const dentistApi = {
 
 // ─── Appointment API ─────────────────────────────────────────────
 
+export interface CreateAppointmentPayload {
+  dentistId: number;
+  appointmentDate: string;
+  appointmentTime: string;
+  reason: string;
+  isEmergency?: boolean;
+}
+
+export interface ReviewAppointmentPayload {
+  action: 'forward' | 'reject' | 'reassign';
+  rejectionReason?: string;
+  newDentistId?: number;
+}
+
+export interface WalkInAppointmentPayload {
+  patientId: number;
+  dentistId: number;
+  appointmentDate: string;
+  appointmentTime: string;
+  reason: string;
+  isEmergency?: boolean;
+}
+
 export const appointmentApi = {
-  create: (data: { dentistId: number; appointmentDate: string; appointmentTime: string; reason: string }) =>
+  /** Patient books an appointment */
+  create: (data: CreateAppointmentPayload) =>
     api.post('/appointments', data),
 
-  getAll: (params?: Record<string, unknown>) =>
-    api.get('/appointments', { params }),
+  /** Patient views own appointments */
+  getMyAppointments: (params?: Record<string, unknown>) =>
+    api.get('/appointments/my', { params }),
 
+  /** Get appointment by ID (any authenticated user, role-filtered) */
   getById: (id: number | string) =>
     api.get(`/appointments/${id}`),
 
+  /** Patient or receptionist cancels appointment */
   cancel: (id: number | string, reason?: string) =>
-    api.post(`/appointments/${id}/cancel`, { reason }),
+    api.patch(`/appointments/${id}/cancel`, { reason }),
+
+  /** Get available time slots for a dentist on a date */
+  getSlots: (params: { dentistId: number | string; date: string }) =>
+    api.get('/appointments/slots', { params }),
+
+  // ─── Receptionist-specific ─────────────────────────────────
+
+  /** Receptionist views pending appointments */
+  getPending: () =>
+    api.get('/appointments/pending'),
+
+  /** Receptionist reviews appointment (forward/reject/reassign) */
+  review: (id: number | string, data: ReviewAppointmentPayload) =>
+    api.post(`/appointments/${id}/review`, data),
+
+  /** Receptionist views forwarded appointments */
+  getForwarded: () =>
+    api.get('/appointments/forwarded'),
+
+  /** Receptionist/Admin views all appointments */
+  getAll: (params?: Record<string, unknown>) =>
+    api.get('/appointments', { params }),
+
+  /** Receptionist creates walk-in appointment */
+  createWalkIn: (data: WalkInAppointmentPayload) =>
+    api.post('/appointments/walk-in', data),
 };
 
 // ─── Notification API ────────────────────────────────────────────
@@ -158,6 +219,14 @@ export const userApi = {
 
   toggleActive: (id: number | string) =>
     api.patch(`/users/staff/${id}/toggle-active`),
+
+  /** Search users (admin endpoint, used by receptionist for patient search) */
+  getAll: (params?: Record<string, unknown>) =>
+    api.get('/users', { params }),
+
+  /** Get a single user by ID */
+  getById: (id: number | string) =>
+    api.get(`/users/${id}`),
 };
 
 // ─── Admin API ───────────────────────────────────────────────────
