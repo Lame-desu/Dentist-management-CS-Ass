@@ -1,4 +1,8 @@
 import { Router, Request, Response } from 'express';
+import authRoutes from './authRoutes.js';
+import userRoutes from './userRoutes.js';
+import dentistRoutes from './dentistRoutes.js';
+import appointmentRoutes from './appointmentRoutes.js';
 
 const router = Router();
 
@@ -12,11 +16,14 @@ router.get('/health', (_req: Request, res: Response) => {
   });
 });
 
+// ─── Route Modules ───────────────────────────────────────────
+router.use('/auth', authRoutes);
+router.use('/users', userRoutes);
+router.use('/dentists', dentistRoutes);
+router.use('/appointments', appointmentRoutes);
+
 // ─── Placeholder Sub-routes ──────────────────────────────────
 // These will be populated in subsequent steps:
-// router.use('/auth', authRoutes);
-// router.use('/users', userRoutes);
-// router.use('/appointments', appointmentRoutes);
 // router.use('/dental-records', dentalRecordRoutes);
 // router.use('/prescriptions', prescriptionRoutes);
 // router.use('/notifications', notificationRoutes);
