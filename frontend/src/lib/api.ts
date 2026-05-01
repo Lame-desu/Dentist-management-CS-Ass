@@ -8,7 +8,7 @@ const api = axios.create({
   headers: {
     'Content-Type': 'application/json',
   },
-  timeout: 10000,
+  timeout: 15000,
 });
 
 /**
@@ -41,7 +41,11 @@ api.interceptors.response.use(
       // Redirect to login on 401 Unauthorized
       if (status === 401 && typeof window !== 'undefined') {
         localStorage.removeItem('dams_token');
-        window.location.href = '/login';
+        localStorage.removeItem('dams_user');
+        // Only redirect if not already on an auth page
+        if (!window.location.pathname.startsWith('/login') && !window.location.pathname.startsWith('/register')) {
+          window.location.href = '/login';
+        }
       }
     }
 
@@ -50,3 +54,162 @@ api.interceptors.response.use(
 );
 
 export default api;
+
+// ─── Auth API ────────────────────────────────────────────────────
+
+export interface LoginPayload {
+  email: string;
+  password: string;
+}
+
+export interface RegisterPayload {
+  fullName: string;
+  email: string;
+  password: string;
+  phoneNumber: string;
+  dateOfBirth?: string;
+  gender?: string;
+  address?: string;
+  emergencyContact?: string;
+}
+
+export interface ProfileUpdatePayload {
+  fullName?: string;
+  phoneNumber?: string;
+  dateOfBirth?: string;
+  gender?: string;
+  address?: string;
+  emergencyContact?: string;
+}
+
+export const authApi = {
+  login: (data: LoginPayload) =>
+    api.post('/auth/login', data),
+
+  register: (data: RegisterPayload) =>
+    api.post('/auth/register', data),
+
+  getProfile: () =>
+    api.get('/auth/profile'),
+
+  updateProfile: (data: ProfileUpdatePayload) =>
+    api.put('/auth/profile', data),
+};
+
+// ─── Dentist API ─────────────────────────────────────────────────
+
+export const dentistApi = {
+  getAll: (params?: { specialization?: string; page?: number; limit?: number }) =>
+    api.get('/dentists', { params }),
+
+  getAvailability: (dentistId: number | string) =>
+    api.get(`/availability/dentist/${dentistId}`),
+
+  getSlots: (dentistId: number | string, date: string) =>
+    api.get(`/availability/dentist/${dentistId}/slots`, { params: { date } }),
+};
+
+// ─── Appointment API ─────────────────────────────────────────────
+
+export const appointmentApi = {
+  create: (data: { dentistId: number; appointmentDate: string; appointmentTime: string; reason: string }) =>
+    api.post('/appointments', data),
+
+  getAll: (params?: Record<string, unknown>) =>
+    api.get('/appointments', { params }),
+
+  getById: (id: number | string) =>
+    api.get(`/appointments/${id}`),
+
+  cancel: (id: number | string, reason?: string) =>
+    api.post(`/appointments/${id}/cancel`, { reason }),
+};
+
+// ─── Notification API ────────────────────────────────────────────
+
+export const notificationApi = {
+  getAll: (params?: { page?: number; limit?: number; isRead?: boolean }) =>
+    api.get('/notifications', { params }),
+
+  getUnreadCount: () =>
+    api.get('/notifications/unread-count'),
+
+  markRead: (id: number | string) =>
+    api.patch(`/notifications/${id}/read`),
+
+  markAllRead: () =>
+    api.patch('/notifications/read-all'),
+
+  delete: (id: number | string) =>
+    api.delete(`/notifications/${id}`),
+};
+
+// ─── User API ────────────────────────────────────────────────────
+
+export const userApi = {
+  getStaff: (params?: Record<string, unknown>) =>
+    api.get('/users/staff', { params }),
+
+  createStaff: (data: Record<string, unknown>) =>
+    api.post('/users/staff', data),
+
+  updateStaff: (id: number | string, data: Record<string, unknown>) =>
+    api.put(`/users/staff/${id}`, data),
+
+  toggleActive: (id: number | string) =>
+    api.patch(`/users/staff/${id}/toggle-active`),
+};
+
+// ─── Admin API ───────────────────────────────────────────────────
+
+export const adminApi = {
+  getDashboard: () =>
+    api.get('/admin/dashboard'),
+
+  getAppointmentReport: (params?: { from?: string; to?: string }) =>
+    api.get('/admin/reports/appointments', { params }),
+
+  getPatientReport: () =>
+    api.get('/admin/reports/patients'),
+};
+
+// ─── Queue API ───────────────────────────────────────────────────
+
+export const queueApi = {
+  addToQueue: (appointmentId: number | string) =>
+    api.post('/queue', { appointmentId }),
+
+  getTodayQueue: (params?: { dentistId?: number | string }) =>
+    api.get('/queue/today', { params }),
+
+  callPatient: (queueId: number | string) =>
+    api.patch(`/queue/${queueId}/call`),
+
+  completeQueue: (queueId: number | string) =>
+    api.patch(`/queue/${queueId}/complete`),
+
+  cancelQueue: (queueId: number | string) =>
+    api.patch(`/queue/${queueId}/cancel`),
+
+  getStats: () =>
+    api.get('/queue/stats'),
+};
+
+// ─── Clinical API ────────────────────────────────────────────────
+
+export const clinicalApi = {
+  getRecords: (params?: Record<string, unknown>) =>
+    api.get('/dental-records', { params }),
+
+  getRecordById: (id: number | string) =>
+    api.get(`/dental-records/${id}`),
+
+  createRecord: (data: Record<string, unknown>) =>
+    api.post('/dental-records', data),
+
+  getPrescriptions: (params?: Record<string, unknown>) =>
+    api.get('/prescriptions', { params }),
+
+  createPrescription: (data: Record<string, unknown>) =>
+    api.post('/prescriptions', data),
+};
