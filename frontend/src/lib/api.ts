@@ -142,6 +142,14 @@ export interface WalkInAppointmentPayload {
   isEmergency?: boolean;
 }
 
+export interface RespondAppointmentPayload {
+  action: 'approve' | 'reject' | 'reschedule';
+  rejectionReason?: string;
+  note?: string;
+  suggestedDate?: string;
+  suggestedTime?: string;
+}
+
 export const appointmentApi = {
   /** Patient books an appointment */
   create: (data: CreateAppointmentPayload) =>
@@ -184,6 +192,24 @@ export const appointmentApi = {
   /** Receptionist creates walk-in appointment */
   createWalkIn: (data: WalkInAppointmentPayload) =>
     api.post('/appointments/walk-in', data),
+
+  // ─── Dentist-specific ──────────────────────────────────────
+
+  /** Dentist views own appointments */
+  getDentistAppointments: (params?: Record<string, unknown>) =>
+    api.get('/appointments/dentist', { params }),
+
+  /** Dentist responds to forwarded appointment (approve/reject/reschedule) */
+  respond: (id: number | string, data: RespondAppointmentPayload) =>
+    api.post(`/appointments/${id}/respond`, data),
+
+  /** Dentist marks appointment as completed */
+  complete: (id: number | string) =>
+    api.patch(`/appointments/${id}/complete`),
+
+  /** Dentist views schedule for a date */
+  getDentistSchedule: (params: { date: string }) =>
+    api.get('/appointments/dentist/schedule', { params }),
 };
 
 // ─── Notification API ────────────────────────────────────────────
@@ -215,10 +241,10 @@ export const userApi = {
     api.post('/users/staff', data),
 
   updateStaff: (id: number | string, data: Record<string, unknown>) =>
-    api.put(`/users/staff/${id}`, data),
+    api.put(`/users/${id}`, data),
 
   toggleActive: (id: number | string) =>
-    api.patch(`/users/staff/${id}/toggle-active`),
+    api.patch(`/users/${id}/toggle-active`),
 
   /** Search users (admin endpoint, used by receptionist for patient search) */
   getAll: (params?: Record<string, unknown>) =>
@@ -238,8 +264,8 @@ export const adminApi = {
   getAppointmentReport: (params?: { from?: string; to?: string }) =>
     api.get('/admin/reports/appointments', { params }),
 
-  getPatientReport: () =>
-    api.get('/admin/reports/patients'),
+  getPatientReport: (params?: { from?: string; to?: string }) =>
+    api.get('/admin/reports/patients', { params }),
 };
 
 // ─── Queue API ───────────────────────────────────────────────────
@@ -264,7 +290,103 @@ export const queueApi = {
     api.get('/queue/stats'),
 };
 
-// ─── Clinical API ────────────────────────────────────────────────
+// ─── Dental Record API ──────────────────────────────────────────
+
+export const dentalRecordApi = {
+  /** Dentist creates a dental record (with inline prescriptions) */
+  create: (data: Record<string, unknown>) =>
+    api.post('/dental-records', data),
+
+  /** Get records by patient ID (dentist/receptionist/admin) */
+  getByPatient: (patientId: number | string) =>
+    api.get(`/dental-records/patient/${patientId}`),
+
+  /** Dentist views records they created */
+  getDentistRecords: (params?: Record<string, unknown>) =>
+    api.get('/dental-records/dentist/my', { params }),
+
+  /** Patient views own records */
+  getMyRecords: (params?: Record<string, unknown>) =>
+    api.get('/dental-records/my', { params }),
+
+  /** Get single record by ID */
+  getById: (id: number | string) =>
+    api.get(`/dental-records/${id}`),
+
+  /** Dentist updates a dental record */
+  update: (id: number | string, data: Record<string, unknown>) =>
+    api.put(`/dental-records/${id}`, data),
+};
+
+// ─── Prescription API ───────────────────────────────────────────
+
+export const prescriptionApi = {
+  /** Dentist creates single prescription */
+  create: (data: Record<string, unknown>) =>
+    api.post('/prescriptions', data),
+
+  /** Dentist creates multiple prescriptions at once */
+  createBulk: (data: Record<string, unknown>) =>
+    api.post('/prescriptions/bulk', data),
+
+  /** Dentist updates prescription */
+  update: (id: number | string, data: Record<string, unknown>) =>
+    api.put(`/prescriptions/${id}`, data),
+
+  /** Dentist deletes prescription */
+  delete: (id: number | string) =>
+    api.delete(`/prescriptions/${id}`),
+
+  /** Get prescriptions by record */
+  getByRecord: (recordId: number | string) =>
+    api.get(`/prescriptions/record/${recordId}`),
+
+  /** Patient views own prescriptions */
+  getMyPrescriptions: (params?: Record<string, unknown>) =>
+    api.get('/prescriptions/my', { params }),
+};
+
+// ─── Availability API ───────────────────────────────────────────
+
+export const availabilityApi = {
+  /** Get a dentist's weekly availability */
+  getAvailability: (dentistId: number | string) =>
+    api.get(`/availability/${dentistId}`),
+
+  /** Dentist sets own full weekly availability */
+  setAvailability: (data: Record<string, unknown>[]) =>
+    api.put('/availability', { schedule: data }),
+
+  /** Dentist updates a single day */
+  updateDay: (dayOfWeek: number, data: Record<string, unknown>) =>
+    api.patch(`/availability/${dayOfWeek}`, data),
+
+  /** Get day schedule with slots */
+  getDaySchedule: (dentistId: number | string, date: string) =>
+    api.get(`/availability/${dentistId}/schedule`, { params: { date } }),
+
+  /** Get week schedule */
+  getWeekSchedule: (dentistId: number | string, weekStart: string) =>
+    api.get(`/availability/${dentistId}/week`, { params: { weekStart } }),
+};
+
+// ─── Config API ─────────────────────────────────────────────────
+
+export const configApi = {
+  /** Get all clinic configuration */
+  getAll: () =>
+    api.get('/config'),
+
+  /** Get working hours specifically */
+  getWorkingHours: () =>
+    api.get('/config/working-hours'),
+
+  /** Admin updates a config value */
+  update: (key: string, value: string) =>
+    api.put(`/config/${key}`, { value }),
+};
+
+// ─── Clinical API (legacy — kept for backward compatibility) ────
 
 export const clinicalApi = {
   getRecords: (params?: Record<string, unknown>) =>
