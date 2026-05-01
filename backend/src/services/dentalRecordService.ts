@@ -1,6 +1,7 @@
 import { query } from '../config/database.js';
 import { AppError } from '../middleware/errorHandler.js';
 import { AppointmentStatus, NotificationType, UserRole } from '../utils/constants.js';
+import { createNotification } from './notificationService.js';
 
 // ─── Interfaces ──────────────────────────────────────────────
 
@@ -23,21 +24,6 @@ interface UpdateRecordInput {
   notes?: string;
 }
 
-// ─── Notification Helper ─────────────────────────────────────
-
-async function createNotification(
-  userId: number,
-  title: string,
-  message: string,
-  type: string,
-  relatedAppointmentId?: number
-): Promise<void> {
-  await query(
-    `INSERT INTO notifications (user_id, title, message, type, related_appointment_id)
-     VALUES ($1, $2, $3, $4, $5)`,
-    [userId, title, message, type, relatedAppointmentId || null]
-  );
-}
 
 // ═══════════════════════════════════════════════════════════════
 // CREATE DENTAL RECORD

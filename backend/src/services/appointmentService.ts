@@ -1,8 +1,8 @@
 import { query } from '../config/database.js';
 import { AppError } from '../middleware/errorHandler.js';
 import { AppointmentStatus, NotificationType, UserRole } from '../utils/constants.js';
+import { createNotification } from './notificationService.js';
 
-// ─── Interfaces ──────────────────────────────────────────────
 
 interface CreateAppointmentInput {
   dentistId: number;
@@ -38,23 +38,8 @@ interface WalkInInput {
   isEmergency?: boolean;
 }
 
-// ─── Notification Helper ─────────────────────────────────────
-
-async function createNotification(
-  userId: number,
-  title: string,
-  message: string,
-  type: string,
-  relatedAppointmentId?: number
-): Promise<void> {
-  await query(
-    `INSERT INTO notifications (user_id, title, message, type, related_appointment_id)
-     VALUES ($1, $2, $3, $4, $5)`,
-    [userId, title, message, type, relatedAppointmentId || null]
-  );
-}
-
 // ─── Clinic Config Helper ────────────────────────────────────
+
 
 async function getClinicConfig(): Promise<Record<string, string>> {
   const result = await query('SELECT config_key, config_value FROM clinic_configuration');
