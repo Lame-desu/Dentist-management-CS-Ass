@@ -111,10 +111,10 @@ export const dentistApi = {
     api.get('/dentists', { params }),
 
   getAvailability: (dentistId: number | string) =>
-    api.get(`/availability/dentist/${dentistId}`),
+    api.get(`/availability/${dentistId}`),
 
   getSlots: (dentistId: number | string, date: string) =>
-    api.get(`/availability/dentist/${dentistId}/slots`, { params: { date } }),
+    api.get(`/availability/${dentistId}/schedule`, { params: { date } }),
 };
 
 // ─── Appointment API ─────────────────────────────────────────────

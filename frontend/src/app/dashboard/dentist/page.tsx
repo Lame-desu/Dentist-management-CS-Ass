@@ -51,10 +51,13 @@ export default function DentistDashboard() {
 
       // Today's schedule
       if (scheduleRes.status === 'fulfilled') {
-        const data = scheduleRes.value.data?.data?.appointments || scheduleRes.value.data?.data || [];
-        const arr = Array.isArray(data) ? data : [];
-        setTodaySchedule(arr);
-        setStats(prev => ({ ...prev, todayAppts: arr.length }));
+        const data = scheduleRes.value.data?.data;
+        const arr = Array.isArray(data)
+          ? data
+          : (data?.bookedAppointments || data?.appointments || []);
+        const finalArr = Array.isArray(arr) ? arr : [];
+        setTodaySchedule(finalArr);
+        setStats(prev => ({ ...prev, todayAppts: finalArr.length }));
       }
 
       // All appointments — calculate forwarded + weekly patients

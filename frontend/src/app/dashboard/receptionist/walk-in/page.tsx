@@ -109,8 +109,17 @@ export default function WalkInPage() {
     try {
       setLoadingSlots(true);
       const res = await dentistApi.getSlots(dentistId, date);
-      const data = res.data?.data?.availableSlots || res.data?.data?.slots || res.data?.data || [];
-      setSlots(Array.isArray(data) ? data : []);
+      const data = res.data?.data;
+      // The schedule endpoint returns { slots: [{ time, status }], ... }
+      const allSlots = data?.slots || data?.availableSlots || [];
+      // Filter to only free slots and extract time strings
+      const freeSlots = Array.isArray(allSlots)
+        ? allSlots
+            .filter((s: { status?: string }) => !s.status || s.status === 'free')
+            .map((s: { time?: string } | string) => typeof s === 'string' ? s : s.time || '')
+            .filter(Boolean)
+        : [];
+      setSlots(freeSlots);
     } catch {
       setSlots([]);
     } finally {
@@ -375,7 +384,7 @@ export default function WalkInPage() {
                     >
                       <Avatar name={d.full_name} size="sm" />
                       <div>
-                        <p className="font-medium text-sm text-surface-900 dark:text-white">Dr. {d.full_name}</p>
+                        <p className="font-medium text-sm text-surface-900 dark:text-white">{d.full_name?.startsWith('Dr.') ? d.full_name : `Dr. ${d.full_name}`}</p>
                         {d.specialization && <p className="text-xs text-surface-500 dark:text-surface-400">{d.specialization}</p>}
                       </div>
                     </button>

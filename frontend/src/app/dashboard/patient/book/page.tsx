@@ -68,8 +68,17 @@ export default function BookAppointmentPage() {
         selectedDentist.dentist_id || selectedDentist.id,
         selectedDate
       );
-      const slotsData = res.data?.data?.availableSlots || res.data?.data?.slots || res.data?.data || [];
-      setSlots(Array.isArray(slotsData) ? slotsData : []);
+      const data = res.data?.data;
+      // The schedule endpoint returns { slots: [{ time, status }], ... }
+      const allSlots = data?.slots || data?.availableSlots || [];
+      // Filter to only free slots and extract time strings
+      const freeSlots = Array.isArray(allSlots)
+        ? allSlots
+            .filter((s: { status?: string }) => !s.status || s.status === 'free')
+            .map((s: { time?: string } | string) => typeof s === 'string' ? s : s.time || '')
+            .filter(Boolean)
+        : [];
+      setSlots(freeSlots);
     } catch {
       setSlots([]);
       addToast({ type: 'error', title: 'Error', message: 'Failed to load time slots' });
@@ -216,7 +225,7 @@ export default function BookAppointmentPage() {
                     <Avatar name={dentist.full_name} size="lg" />
                     <div className="flex-1 min-w-0">
                       <p className="font-semibold text-surface-900 dark:text-white truncate">
-                        Dr. {dentist.full_name}
+                        {dentist.full_name?.startsWith('Dr.') ? dentist.full_name : `Dr. ${dentist.full_name}`}
                       </p>
                       {dentist.specialization && (
                         <Badge variant="primary" className="mt-1">{dentist.specialization}</Badge>
@@ -256,7 +265,7 @@ export default function BookAppointmentPage() {
         <Card>
           <h2 className="text-lg font-semibold text-surface-900 dark:text-white mb-1">Select Date & Time</h2>
           <p className="text-sm text-surface-500 dark:text-surface-400 mb-6">
-            Choose your preferred date and available time slot for Dr. {selectedDentist?.full_name}
+            Choose your preferred date and available time slot for {selectedDentist?.full_name?.startsWith('Dr.') ? selectedDentist.full_name : `Dr. ${selectedDentist?.full_name}`}
           </p>
 
           <div className="grid gap-6 lg:grid-cols-2">
@@ -334,7 +343,7 @@ export default function BookAppointmentPage() {
             <div className="grid gap-4 sm:grid-cols-2">
               <div>
                 <p className="text-xs font-medium uppercase tracking-wider text-surface-500 dark:text-surface-400">Dentist</p>
-                <p className="mt-1 font-semibold text-surface-900 dark:text-white">Dr. {selectedDentist?.full_name}</p>
+                <p className="mt-1 font-semibold text-surface-900 dark:text-white">{selectedDentist?.full_name?.startsWith('Dr.') ? selectedDentist.full_name : `Dr. ${selectedDentist?.full_name}`}</p>
                 {selectedDentist?.specialization && (
                   <Badge variant="primary" className="mt-1">{selectedDentist.specialization}</Badge>
                 )}

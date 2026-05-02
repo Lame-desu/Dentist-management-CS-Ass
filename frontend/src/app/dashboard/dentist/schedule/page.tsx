@@ -91,9 +91,9 @@ export default function DentistSchedulePage() {
       days.forEach((d, i) => {
         const dateStr = formatDate(d);
         if (results[i].status === 'fulfilled') {
-          const res = results[i] as PromiseFulfilledResult<{ data: { data: { appointments?: Appointment[] } | Appointment[] } }>;
+          const res = results[i] as PromiseFulfilledResult<{ data: { data: { bookedAppointments?: Appointment[]; appointments?: Appointment[] } | Appointment[] } }>;
           const data = res.value.data?.data;
-          const arr = Array.isArray(data) ? data : ((data as Record<string, unknown>)?.appointments as Appointment[] || []);
+          const arr = Array.isArray(data) ? data : ((data as Record<string, unknown>)?.bookedAppointments as Appointment[] || (data as Record<string, unknown>)?.appointments as Appointment[] || []);
           apptMap[dateStr] = Array.isArray(arr) ? arr : [];
         } else {
           apptMap[dateStr] = [];
