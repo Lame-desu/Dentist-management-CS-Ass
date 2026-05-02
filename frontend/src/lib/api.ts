@@ -394,7 +394,7 @@ export const configApi = {
 
 export const clinicalApi = {
   getRecords: (params?: Record<string, unknown>) =>
-    api.get('/dental-records', { params }),
+    api.get('/dental-records/my', { params }),
 
   getRecordById: (id: number | string) =>
     api.get(`/dental-records/${id}`),
@@ -403,7 +403,7 @@ export const clinicalApi = {
     api.post('/dental-records', data),
 
   getPrescriptions: (params?: Record<string, unknown>) =>
-    api.get('/prescriptions', { params }),
+    api.get('/prescriptions/my', { params }),
 
   createPrescription: (data: Record<string, unknown>) =>
     api.post('/prescriptions', data),
