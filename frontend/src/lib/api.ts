@@ -353,9 +353,13 @@ export const availabilityApi = {
   getAvailability: (dentistId: number | string) =>
     api.get(`/availability/${dentistId}`),
 
+  /** Dentist gets own availability (no ID needed) */
+  getMyAvailability: () =>
+    api.get('/availability/me'),
+
   /** Dentist sets own full weekly availability */
   setAvailability: (data: Record<string, unknown>[]) =>
-    api.put('/availability', { schedule: data }),
+    api.put('/availability', data),
 
   /** Dentist updates a single day */
   updateDay: (dayOfWeek: number, data: Record<string, unknown>) =>

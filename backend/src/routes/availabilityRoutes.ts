@@ -44,6 +44,13 @@ router.put(
 // DENTIST — Own availability management
 // ═══════════════════════════════════════════════════════════════
 
+// GET /api/availability/me — Dentist retrieves own availability
+router.get(
+  '/me',
+  authorize(UserRole.DENTIST),
+  availabilityController.getOwnAvailability
+);
+
 // PUT /api/availability — Dentist sets own availability
 router.put(
   '/',

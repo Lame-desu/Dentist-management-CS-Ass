@@ -138,8 +138,15 @@ export async function login(data: LoginInput) {
     role: user.role,
   });
 
+  // Enrich with role-specific profile_id
+  const safeUser = sanitizeUser(user);
+  const profileId = await resolveProfileId(user.id, user.role);
+  if (profileId !== null) {
+    safeUser.profile_id = profileId;
+  }
+
   return {
-    user: sanitizeUser(user),
+    user: safeUser,
     token,
   };
 }
@@ -198,8 +205,12 @@ export async function getProfile(userId: string) {
     }
   }
 
+  // Attach profile_id as top-level field for frontend convenience
+  const profile_id = roleProfile?.id ?? null;
+
   return {
     ...user,
+    profile_id,
     profile: roleProfile,
   };
 }
@@ -308,4 +319,24 @@ export async function updateProfile(userId: string, data: ProfileUpdateInput) {
 
   // Return updated profile
   return getProfile(userId);
+}
+
+// ─── Helpers ─────────────────────────────────────────────────
+
+/**
+ * Resolve the role-specific profile ID for a user.
+ * Returns null if the role has no profile table or no record exists.
+ */
+async function resolveProfileId(userId: number, role: string): Promise<number | null> {
+  const tableMap: Record<string, string> = {
+    [UserRole.PATIENT]: 'patients',
+    [UserRole.DENTIST]: 'dentists',
+    [UserRole.RECEPTIONIST]: 'receptionists',
+  };
+
+  const table = tableMap[role];
+  if (!table) return null;
+
+  const result = await query(`SELECT id FROM ${table} WHERE user_id = $1`, [userId]);
+  return result.rows.length > 0 ? result.rows[0].id : null;
 }

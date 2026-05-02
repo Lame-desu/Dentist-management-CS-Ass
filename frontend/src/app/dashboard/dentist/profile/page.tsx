@@ -115,9 +115,9 @@ export default function DentistProfilePage() {
 
   // Load availability
   const loadAvailability = async () => {
-    if (availLoaded || !user?.profile_id) return;
+    if (availLoaded) return;
     try {
-      const res = await availabilityApi.getAvailability(user.profile_id);
+      const res = await availabilityApi.getMyAvailability();
       const data = res.data?.data?.availability || res.data?.data || [];
       setAvailability(Array.isArray(data) ? data : []);
       setAvailLoaded(true);
@@ -141,15 +141,17 @@ export default function DentistProfilePage() {
   const handleSaveAvailability = async () => {
     try {
       setAvailSaving(true);
-      await availabilityApi.setAvailability(
-        availability
-          .filter((a: Record<string, unknown>) => a.is_available !== false)
-          .map((a: Record<string, unknown>) => ({
-            dayOfWeek: a.day_of_week,
-            startTime: a.start_time,
-            endTime: a.end_time,
-          }))
-      );
+      const schedule = [0, 1, 2, 3, 4, 5, 6].map((dayOfWeek) => {
+        const avail = availability.find((a: Record<string, unknown>) => a.day_of_week === dayOfWeek);
+        const isAvailable = !!(avail && avail.is_available !== false && avail.start_time);
+        return {
+          dayOfWeek,
+          startTime: (avail?.start_time as string) || '08:00',
+          endTime: (avail?.end_time as string) || '17:00',
+          isAvailable,
+        };
+      });
+      await availabilityApi.setAvailability(schedule);
       addToast({ type: 'success', title: 'Saved', message: 'Availability updated successfully.' });
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message || 'Failed to save';

@@ -24,6 +24,21 @@ export async function setOwnAvailability(req: Request, res: Response, next: Next
 }
 
 /**
+ * GET /api/availability/me
+ * Dentist retrieves their own weekly availability.
+ */
+export async function getOwnAvailability(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const dentistId = await resolveDentistId(req.user!.userId);
+    const result = await availabilityService.getAvailability(dentistId);
+
+    successResponse(res, result, 'Own availability retrieved successfully.');
+  } catch (error) {
+    next(error);
+  }
+}
+
+/**
  * PATCH /api/availability/:dayOfWeek
  * Dentist updates a single day of their availability.
  */
