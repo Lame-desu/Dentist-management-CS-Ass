@@ -56,14 +56,13 @@ services:
         condition: service_healthy             # Wait for DB to be ready
     volumes:
       - ./backend:/app                         # Hot-reload: mount source code
-      - /app/node_modules                      # Preserve container's node_modules
-    command: npm run dev
+      - backend_node_modules:/app/node_modules # Persist node_modules (don't overwrite with host)
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://localhost:5000/api/health || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 5
-      start_period: 30s
+      start_period: 60s                        # Allow time for npm install on first run
 
   # ──────────────────────────────────────────────
   # Next.js Frontend Application
@@ -82,9 +81,11 @@ services:
       - backend
     volumes:
       - ./frontend:/app                        # Hot-reload: mount source code
-      - /app/node_modules                      # Preserve container's node_modules
-      - /app/.next                             # Preserve build cache
-    command: npm run dev
+      - frontend_node_modules:/app/node_modules # Persist node_modules (don't overwrite with host)
+      - frontend_next:/app/.next               # Persist build cache
 
 volumes:
   postgres_data:                               # Named volume for DB persistence
+  backend_node_modules:                        # Named volume for backend dependencies
+  frontend_node_modules:                       # Named volume for frontend dependencies
+  frontend_next:                               # Named volume for Next.js build cache

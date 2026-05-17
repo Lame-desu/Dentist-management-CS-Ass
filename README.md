@@ -48,7 +48,7 @@ The system is pre-seeded with demo accounts for testing:
 | **Admin**       | admin@dams.com       | admin123       | Staff management, reports, clinic config    |
 | **Dentist**     | abebe@dams.com       | dentist123     | Schedule, appointments, consultations       |
 | **Receptionist**| meron@dams.com       | reception123   | Pending requests, queue, walk-ins           |
-| **Patient**     | dawit@dams.com       | patient123     | Book appointments, records, prescriptions   |
+| **Patient**     | dawit@dams.com       | patient123     | Book appointments, records, prescriptions   |S
 
 > Additional accounts: `tigist@dams.com`, `solomon@dams.com` (dentists), `hana@dams.com` (receptionist), `sara@dams.com`, `yonas@dams.com`, `bethlehem@dams.com`, `kidus@dams.com` (patients) — all with their role-specific passwords above.
 
