@@ -75,12 +75,13 @@ export function Modal({
           w-full ${sizeClasses[size]} animate-modal-content
           rounded-2xl border border-surface-200 bg-white shadow-2xl
           dark:border-surface-700 dark:bg-surface-800
+          flex flex-col max-h-[90vh]
           ${className}
         `}
       >
         {/* Header */}
         {(title || description) && (
-          <div className="flex items-start justify-between border-b border-surface-200 px-6 py-4 dark:border-surface-700">
+          <div className="flex items-start justify-between border-b border-surface-200 px-6 py-4 dark:border-surface-700 flex-shrink-0">
             <div>
               {title && (
                 <h2 className="text-lg font-semibold text-surface-900 dark:text-white">
@@ -105,11 +106,11 @@ export function Modal({
         )}
 
         {/* Body */}
-        <div className="px-6 py-4">{children}</div>
+        <div className="px-6 py-4 overflow-y-auto flex-1 min-h-0">{children}</div>
 
         {/* Footer */}
         {footer && (
-          <div className="flex items-center justify-end gap-3 border-t border-surface-200 px-6 py-4 dark:border-surface-700">
+          <div className="flex items-center justify-end gap-3 border-t border-surface-200 px-6 py-4 dark:border-surface-700 flex-shrink-0">
             {footer}
           </div>
         )}

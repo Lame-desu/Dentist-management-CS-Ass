@@ -128,6 +128,32 @@ export async function setPassword(req: Request, res: Response, next: NextFunctio
 }
 
 /**
+ * PUT /api/auth/password
+ * Change the authenticated user's password.
+ */
+export async function changePassword(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    if (!req.user) {
+      throw new AppError('Authentication required.', 401);
+    }
+
+    const { currentPassword, newPassword } = req.body;
+    if (!currentPassword || !newPassword) {
+      throw new AppError('Current password and new password are required.', 400);
+    }
+
+    if (newPassword.length < 8) {
+      throw new AppError('New password must be at least 8 characters.', 400);
+    }
+
+    const result = await authService.changePassword(req.user.userId, currentPassword, newPassword);
+    successResponse(res, result, result.message);
+  } catch (error) {
+    next(error);
+  }
+}
+
+/**
  * POST /api/auth/resend-verification
  * Resend verification or invitation email.
  */

@@ -165,9 +165,14 @@ export async function createStaffUser(data: StaffUserInput) {
     throw new AppError('Staff role must be either "dentist" or "receptionist".', 400);
   }
 
-  // Dentist must have availability data
+  // If dentist has no availability data, generate a sensible default (Mon–Fri 09:00–17:00)
   if (data.role === UserRole.DENTIST && (!data.availability || data.availability.length === 0)) {
-    throw new AppError('Availability schedule is required when creating a dentist.', 400);
+    data.availability = [1, 2, 3, 4, 5].map(day => ({
+      dayOfWeek: day,
+      startTime: '09:00',
+      endTime: '17:00',
+      isAvailable: true,
+    }));
   }
 
   // Check email uniqueness

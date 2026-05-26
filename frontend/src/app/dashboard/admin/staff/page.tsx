@@ -23,6 +23,26 @@ const SHIFT_OPTIONS = [
   { value: 'full_day', label: 'Full Day' },
 ];
 
+const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+const DAY_NAMES_SHORT = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+interface AvailabilitySlot {
+  dayOfWeek: number;
+  startTime: string;
+  endTime: string;
+  isAvailable: boolean;
+}
+
+const DEFAULT_AVAILABILITY: AvailabilitySlot[] = [
+  { dayOfWeek: 0, startTime: '09:00', endTime: '17:00', isAvailable: false },
+  { dayOfWeek: 1, startTime: '09:00', endTime: '17:00', isAvailable: true },
+  { dayOfWeek: 2, startTime: '09:00', endTime: '17:00', isAvailable: true },
+  { dayOfWeek: 3, startTime: '09:00', endTime: '17:00', isAvailable: true },
+  { dayOfWeek: 4, startTime: '09:00', endTime: '17:00', isAvailable: true },
+  { dayOfWeek: 5, startTime: '09:00', endTime: '17:00', isAvailable: true },
+  { dayOfWeek: 6, startTime: '09:00', endTime: '17:00', isAvailable: false },
+];
+
 export default function StaffManagementPage() {
   const { addToast } = useToast();
   const [loading, setLoading] = useState(true);
@@ -44,6 +64,9 @@ export default function StaffManagementPage() {
     shift: 'full_day',
   });
   const [addErrors, setAddErrors] = useState<Record<string, string>>({});
+  const [availability, setAvailability] = useState<AvailabilitySlot[]>(
+    DEFAULT_AVAILABILITY.map(s => ({ ...s }))
+  );
 
   // Edit modal
   const [editUser, setEditUser] = useState<User | null>(null);
@@ -106,6 +129,15 @@ export default function StaffManagementPage() {
         payload.licenseNumber = addForm.licenseNumber;
         if (addForm.yearsOfExperience) payload.yearsOfExperience = Number(addForm.yearsOfExperience);
         if (addForm.bio) payload.bio = addForm.bio;
+        // Send only the enabled availability slots
+        payload.availability = availability
+          .filter(s => s.isAvailable)
+          .map(s => ({
+            dayOfWeek: s.dayOfWeek,
+            startTime: s.startTime,
+            endTime: s.endTime,
+            isAvailable: true,
+          }));
       } else {
         payload.shift = addForm.shift;
       }
@@ -113,6 +145,7 @@ export default function StaffManagementPage() {
       addToast({ type: 'success', title: 'Staff Created', message: `${addForm.role === 'dentist' ? 'Dentist' : 'Receptionist'} account created. An invitation email has been sent.` });
       setShowAddModal(false);
       setAddForm({ role: 'dentist', fullName: '', email: '', phoneNumber: '', specialization: '', licenseNumber: '', yearsOfExperience: '', bio: '', shift: 'full_day' });
+      setAvailability(DEFAULT_AVAILABILITY.map(s => ({ ...s })));
       setAddErrors({});
       loadUsers();
     } catch (err: unknown) {
@@ -361,6 +394,87 @@ export default function StaffManagementPage() {
                 <Input label="License Number *" value={addForm.licenseNumber} onChange={(e) => setAddForm(prev => ({ ...prev, licenseNumber: e.target.value }))} error={addErrors.licenseNumber} />
                 <Input label="Years of Experience" type="number" value={addForm.yearsOfExperience} onChange={(e) => setAddForm(prev => ({ ...prev, yearsOfExperience: e.target.value }))} />
                 <Input label="Bio" value={addForm.bio} onChange={(e) => setAddForm(prev => ({ ...prev, bio: e.target.value }))} />
+              </div>
+
+              {/* Weekly Availability Schedule */}
+              <div className="mt-4">
+                <p className="text-sm font-semibold text-surface-700 dark:text-surface-300 mb-3">Weekly Availability</p>
+                <p className="text-xs text-surface-500 dark:text-surface-400 mb-3">
+                  Set the dentist&apos;s working hours. Toggle days on/off and adjust times as needed.
+                </p>
+                <div className="space-y-2">
+                  {availability.map((slot, idx) => (
+                    <div
+                      key={slot.dayOfWeek}
+                      className={`flex items-center gap-3 rounded-lg border px-3 py-2.5 transition-colors ${
+                        slot.isAvailable
+                          ? 'border-primary-500/30 bg-primary-500/5 dark:border-primary-400/20 dark:bg-primary-500/10'
+                          : 'border-surface-200 bg-surface-50 dark:border-surface-700 dark:bg-surface-800/50 opacity-60'
+                      }`}
+                    >
+                      {/* Toggle */}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setAvailability(prev => prev.map((s, i) =>
+                            i === idx ? { ...s, isAvailable: !s.isAvailable } : s
+                          ));
+                        }}
+                        className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                          slot.isAvailable ? 'bg-primary-600' : 'bg-surface-300 dark:bg-surface-600'
+                        }`}
+                        role="switch"
+                        aria-checked={slot.isAvailable}
+                      >
+                        <span
+                          className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow-sm ring-0 transition duration-200 ease-in-out ${
+                            slot.isAvailable ? 'translate-x-4' : 'translate-x-0'
+                          }`}
+                        />
+                      </button>
+
+                      {/* Day name */}
+                      <span className={`text-sm font-medium w-12 ${
+                        slot.isAvailable
+                          ? 'text-surface-900 dark:text-white'
+                          : 'text-surface-400 dark:text-surface-500'
+                      }`}>
+                        <span className="hidden sm:inline">{DAY_NAMES[slot.dayOfWeek]}</span>
+                        <span className="sm:hidden">{DAY_NAMES_SHORT[slot.dayOfWeek]}</span>
+                      </span>
+
+                      {/* Time inputs */}
+                      {slot.isAvailable && (
+                        <div className="flex items-center gap-2 ml-auto">
+                          <input
+                            type="time"
+                            value={slot.startTime}
+                            onChange={(e) => {
+                              setAvailability(prev => prev.map((s, i) =>
+                                i === idx ? { ...s, startTime: e.target.value } : s
+                              ));
+                            }}
+                            className="rounded-md border border-surface-300 bg-white px-2 py-1 text-xs dark:border-surface-600 dark:bg-surface-700 dark:text-white focus:outline-none focus:ring-1 focus:ring-primary-500"
+                          />
+                          <span className="text-xs text-surface-400">to</span>
+                          <input
+                            type="time"
+                            value={slot.endTime}
+                            onChange={(e) => {
+                              setAvailability(prev => prev.map((s, i) =>
+                                i === idx ? { ...s, endTime: e.target.value } : s
+                              ));
+                            }}
+                            className="rounded-md border border-surface-300 bg-white px-2 py-1 text-xs dark:border-surface-600 dark:bg-surface-700 dark:text-white focus:outline-none focus:ring-1 focus:ring-primary-500"
+                          />
+                        </div>
+                      )}
+                      {!slot.isAvailable && (
+                        <span className="text-xs text-surface-400 dark:text-surface-500 ml-auto italic">Day off</span>
+                      )}
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
           )}

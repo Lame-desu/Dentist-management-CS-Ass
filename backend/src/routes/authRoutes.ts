@@ -35,4 +35,7 @@ router.get('/profile', authenticate, authController.getProfile);
 // PUT /api/auth/profile — Update current user's profile
 router.put('/profile', authenticate, validate(profileUpdateValidation), authController.updateProfile);
 
+// PUT /api/auth/password — Change current user's password
+router.put('/password', authenticate, authController.changePassword);
+
 export default router;

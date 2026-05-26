@@ -338,6 +338,35 @@ export async function updateProfile(userId: string, data: ProfileUpdateInput) {
   return getProfile(userId);
 }
 
+/**
+ * Change the authenticated user's password.
+ */
+export async function changePassword(userId: string, currentPassword: string, newPassword: string) {
+  // Fetch user's current password hash
+  const result = await query('SELECT id, password_hash FROM users WHERE id = $1', [userId]);
+  if (result.rows.length === 0) {
+    throw new AppError('User not found.', 404);
+  }
+
+  const user = result.rows[0];
+
+  if (!user.password_hash) {
+    throw new AppError('No password set for this account. Please use the set-password link.', 400);
+  }
+
+  // Verify current password
+  const isMatch = await bcrypt.compare(currentPassword, user.password_hash);
+  if (!isMatch) {
+    throw new AppError('Current password is incorrect.', 401);
+  }
+
+  // Hash and save new password
+  const newHash = await bcrypt.hash(newPassword, 10);
+  await query('UPDATE users SET password_hash = $1 WHERE id = $2', [newHash, userId]);
+
+  return { message: 'Password changed successfully.' };
+}
+
 // ─── Helpers ─────────────────────────────────────────────────
 
 /**
