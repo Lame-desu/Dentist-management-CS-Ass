@@ -562,10 +562,47 @@ async function seedClinicConfig() {
 // MAIN
 // ═══════════════════════════════════════════════════════════════
 
+/**
+ * Check if the database already has data (users table).
+ * Returns true if the database is empty and needs seeding.
+ */
+async function isDatabaseEmpty(): Promise<boolean> {
+  try {
+    const result = await query('SELECT COUNT(*) AS count FROM users');
+    return parseInt(result.rows[0].count) === 0;
+  } catch {
+    // Table doesn't exist yet — database is empty
+    return true;
+  }
+}
+
+/**
+ * Seed the database with demo data.
+ *
+ * - On first run (empty database): seeds all demo data automatically.
+ * - On subsequent runs: skips seeding to preserve existing data.
+ * - To force re-seed: set FORCE_SEED=true env var, or run the script
+ *   directly with --force flag, or wipe volumes with `docker compose down -v`.
+ */
 export async function runSeed(): Promise<void> {
   console.log('\n╔══════════════════════════════════════════════╗');
   console.log('║   🌱 DAMS — Database Seed Script             ║');
   console.log('╚══════════════════════════════════════════════╝');
+
+  const forceFlag = process.env.FORCE_SEED === 'true' || process.argv.includes('--force');
+
+  // Skip seeding if data already exists (unless forced)
+  if (!forceFlag) {
+    const empty = await isDatabaseEmpty();
+    if (!empty) {
+      console.log('\n✅ Database already has data — skipping seed.');
+      console.log('   To force re-seed: set FORCE_SEED=true or run with --force');
+      console.log('   To start fresh:   docker compose down -v && docker compose up --build\n');
+      return;
+    }
+  } else {
+    console.log('\n⚠️  Force seed enabled — clearing existing data…');
+  }
 
   try {
     await clearData();
@@ -597,6 +634,7 @@ export async function runSeed(): Promise<void> {
 
 // ─── Run directly if invoked as a script ─────────────────────
 // e.g. npx tsx src/database/seeds/seed.ts
+// e.g. npx tsx src/database/seeds/seed.ts --force
 const isDirectRun = process.argv[1]?.includes('seed');
 if (isDirectRun) {
   runSeed()
