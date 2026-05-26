@@ -13,6 +13,7 @@ import {
   sendAppointmentRescheduleEmail,
   sendAppointmentCancelledEmail,
   sendWalkInAppointmentEmail,
+  sendAppointmentCompletedEmail,
 } from './emailService.js';
 
 
@@ -1251,9 +1252,14 @@ export async function completeAppointment(appointmentId: string, dentistUserId: 
 
   // Get appointment
   const apptResult = await query(
-    `SELECT a.*, p.user_id AS patient_user_id
+    `SELECT a.*, p.user_id AS patient_user_id,
+            u_p.full_name AS patient_name, u_p.email AS patient_email,
+            u_d.full_name AS dentist_name
      FROM appointments a
      INNER JOIN patients p ON p.id = a.patient_id
+     INNER JOIN users u_p ON u_p.id = p.user_id
+     INNER JOIN dentists d ON d.id = a.dentist_id
+     INNER JOIN users u_d ON u_d.id = d.user_id
      WHERE a.id = $1`,
     [appointmentId]
   );
@@ -1285,6 +1291,17 @@ export async function completeAppointment(appointmentId: string, dentistUserId: 
     NotificationType.GENERAL,
     appointment.id
   );
+
+  // Email 12: Notify patient about appointment completion
+  if (appointment.patient_email) {
+    sendAppointmentCompletedEmail(
+      appointment.patient_email,
+      appointment.patient_name,
+      appointment.dentist_name,
+      appointment.appointment_date,
+      appointment.appointment_time
+    ).catch(() => {});
+  }
 
   return { id: appointment.id, status: AppointmentStatus.COMPLETED };
 }

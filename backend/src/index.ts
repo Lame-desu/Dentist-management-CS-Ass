@@ -2,6 +2,7 @@ import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
+import cron from 'node-cron';
 
 import env from './config/env.js';
 import { testConnection } from './config/database.js';
@@ -9,6 +10,7 @@ import { runMigrations } from './database/migrate.js';
 import { runSeed } from './database/seeds/seed.js';
 import { errorHandler } from './middleware/errorHandler.js';
 import routes from './routes/index.js';
+import { sendDailyReminders } from './services/reminderService.js';
 
 const app = express();
 
@@ -66,3 +68,10 @@ app.listen(PORT, '0.0.0.0', async () => {
 });
 
 export default app;
+
+// ── Daily Appointment Reminder Cron (runs at 8:00 AM every day) ──
+cron.schedule('0 8 * * *', () => {
+  console.log('⏰ Running daily appointment reminder job...');
+  sendDailyReminders();
+});
+console.log('⏰ Appointment reminder cron job scheduled (daily at 8:00 AM)');

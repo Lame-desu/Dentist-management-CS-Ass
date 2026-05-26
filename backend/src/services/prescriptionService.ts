@@ -1,6 +1,7 @@
 import { query } from '../config/database.js';
 import { AppError } from '../middleware/errorHandler.js';
 import { UserRole } from '../utils/constants.js';
+import { sendPrescriptionAddedEmail } from './emailService.js';
 
 // ─── Interfaces ──────────────────────────────────────────────
 
@@ -71,6 +72,28 @@ export async function createPrescription(
     [dentalRecordId, data.medicineName, data.dosage, data.duration || null, data.remarks || null]
   );
 
+  // Email 11: Notify patient about new prescription
+  const patientInfo = await query(
+    `SELECT u.email, u.full_name AS patient_name, u_d.full_name AS dentist_name, dr.visit_date
+     FROM dental_records dr
+     INNER JOIN patients p ON p.id = dr.patient_id
+     INNER JOIN users u ON u.id = p.user_id
+     INNER JOIN dentists d ON d.id = dr.dentist_id
+     INNER JOIN users u_d ON u_d.id = d.user_id
+     WHERE dr.id = $1`,
+    [dentalRecordId]
+  );
+  if (patientInfo.rows.length > 0) {
+    const info = patientInfo.rows[0];
+    sendPrescriptionAddedEmail(
+      info.email,
+      info.patient_name,
+      info.dentist_name,
+      info.visit_date,
+      [{ medicineName: data.medicineName, dosage: data.dosage, duration: data.duration, remarks: data.remarks }]
+    ).catch(() => {});
+  }
+
   return result.rows[0];
 }
 
@@ -102,6 +125,28 @@ export async function createBulkPrescriptions(
       [dentalRecordId, rx.medicineName, rx.dosage, rx.duration || null, rx.remarks || null]
     );
     createdPrescriptions.push(result.rows[0]);
+  }
+
+  // Email 11: Notify patient about new prescriptions
+  const patientInfo = await query(
+    `SELECT u.email, u.full_name AS patient_name, u_d.full_name AS dentist_name, dr.visit_date
+     FROM dental_records dr
+     INNER JOIN patients p ON p.id = dr.patient_id
+     INNER JOIN users u ON u.id = p.user_id
+     INNER JOIN dentists d ON d.id = dr.dentist_id
+     INNER JOIN users u_d ON u_d.id = d.user_id
+     WHERE dr.id = $1`,
+    [dentalRecordId]
+  );
+  if (patientInfo.rows.length > 0) {
+    const info = patientInfo.rows[0];
+    sendPrescriptionAddedEmail(
+      info.email,
+      info.patient_name,
+      info.dentist_name,
+      info.visit_date,
+      prescriptions.map(rx => ({ medicineName: rx.medicineName, dosage: rx.dosage, duration: rx.duration, remarks: rx.remarks }))
+    ).catch(() => {});
   }
 
   return createdPrescriptions;

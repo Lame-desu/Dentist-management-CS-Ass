@@ -705,3 +705,292 @@ export async function sendNewAppointmentRequestEmail(
     console.error(`❌ Failed to send new appointment request email to ${email}:`, error);
   }
 }
+
+/**
+ * Email 10: Notify patient that a dental record has been created after their visit.
+ */
+export async function sendDentalRecordEmail(
+  email: string,
+  patientName: string,
+  dentistName: string,
+  visitDate: string | Date,
+  diagnosis: string,
+  treatment: string,
+  notes?: string,
+  prescriptions?: { medicineName: string; dosage: string; duration?: string; remarks?: string }[]
+): Promise<void> {
+  const notesBlock = notes
+    ? `<div style="margin:16px 0;">
+        <h3 style="margin:0 0 8px;color:#1e293b;font-size:16px;">📝 Notes</h3>
+        <p style="color:#475569;font-size:14px;line-height:1.6;">${notes}</p>
+      </div>`
+    : '';
+
+  const prescriptionBlock = prescriptions && prescriptions.length > 0
+    ? `<div style="margin:16px 0;">
+        <h3 style="margin:0 0 8px;color:#1e293b;font-size:16px;">💊 Prescriptions</h3>
+        <table style="width:100%;border-collapse:collapse;margin:16px 0;">
+          <thead>
+            <tr style="background-color:#f1f5f9;">
+              <th style="padding:10px 12px;text-align:left;border-bottom:2px solid #e2e8f0;color:#475569;font-size:13px;">Medicine</th>
+              <th style="padding:10px 12px;text-align:left;border-bottom:2px solid #e2e8f0;color:#475569;font-size:13px;">Dosage</th>
+              <th style="padding:10px 12px;text-align:left;border-bottom:2px solid #e2e8f0;color:#475569;font-size:13px;">Duration</th>
+              <th style="padding:10px 12px;text-align:left;border-bottom:2px solid #e2e8f0;color:#475569;font-size:13px;">Remarks</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${prescriptions.map(rx => `
+              <tr>
+                <td style="padding:10px 12px;border-bottom:1px solid #e2e8f0;color:#1e293b;font-size:14px;">${rx.medicineName}</td>
+                <td style="padding:10px 12px;border-bottom:1px solid #e2e8f0;color:#1e293b;font-size:14px;">${rx.dosage}</td>
+                <td style="padding:10px 12px;border-bottom:1px solid #e2e8f0;color:#475569;font-size:14px;">${rx.duration || '—'}</td>
+                <td style="padding:10px 12px;border-bottom:1px solid #e2e8f0;color:#475569;font-size:14px;">${rx.remarks || '—'}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      </div>`
+    : '';
+
+  const html = emailWrapper(`
+    <h2 style="margin:0 0 16px;color:#1e293b;font-size:20px;">Dental Record Created</h2>
+    <p style="color:#475569;font-size:15px;line-height:1.6;">
+      Hello ${patientName}, your dental record from your recent visit has been created.
+    </p>
+    <div style="background-color:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:20px;margin:16px 0;">
+      <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
+        <tr>
+          <td style="padding:8px 0;color:#64748b;font-size:14px;width:120px;"><strong>Visit Date:</strong></td>
+          <td style="padding:8px 0;color:#1e293b;font-size:14px;">${formatDate(visitDate)}</td>
+        </tr>
+        <tr>
+          <td style="padding:8px 0;color:#64748b;font-size:14px;"><strong>Dentist:</strong></td>
+          <td style="padding:8px 0;color:#1e293b;font-size:14px;">Dr. ${dentistName}</td>
+        </tr>
+      </table>
+    </div>
+    <div style="margin:16px 0;">
+      <h3 style="margin:0 0 8px;color:#1e293b;font-size:16px;">🔍 Diagnosis</h3>
+      <p style="color:#475569;font-size:14px;line-height:1.6;">${diagnosis}</p>
+    </div>
+    <div style="margin:16px 0;">
+      <h3 style="margin:0 0 8px;color:#1e293b;font-size:16px;">🩺 Treatment</h3>
+      <p style="color:#475569;font-size:14px;line-height:1.6;">${treatment}</p>
+    </div>
+    ${notesBlock}
+    ${prescriptionBlock}
+    ${ctaButton(`${env.FRONTEND_URL}/dashboard/patient/records`, 'View My Records')}
+    <p style="color:#94a3b8;font-size:13px;margin-top:24px;">If you have any questions about your record, please contact the clinic.</p>
+  `);
+
+  try {
+    await transporter.sendMail({
+      from: `"DAMS Clinic" <${env.SMTP_USER}>`,
+      to: email,
+      subject: '📋 Dental Record Created — DAMS Clinic',
+      html,
+    });
+    console.log(`📧 Dental record email sent to ${email}`);
+  } catch (error) {
+    console.error(`❌ Failed to send dental record email to ${email}:`, error);
+  }
+}
+
+/**
+ * Email 11: Notify patient that new prescriptions have been added to their dental record.
+ */
+export async function sendPrescriptionAddedEmail(
+  email: string,
+  patientName: string,
+  dentistName: string,
+  visitDate: string | Date,
+  prescriptions: { medicineName: string; dosage: string; duration?: string; remarks?: string }[]
+): Promise<void> {
+  const html = emailWrapper(`
+    <h2 style="margin:0 0 16px;color:#1e293b;font-size:20px;">New Prescription Added</h2>
+    <p style="color:#475569;font-size:15px;line-height:1.6;">
+      Hello ${patientName}, Dr. ${dentistName} has prescribed new medication for you.
+    </p>
+    <div style="background-color:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:16px;margin:16px 0;">
+      <p style="margin:0;color:#1e40af;font-size:14px;"><strong>Visit Date:</strong> ${formatDate(visitDate)}</p>
+    </div>
+    <table style="width:100%;border-collapse:collapse;margin:16px 0;">
+      <thead>
+        <tr style="background-color:#f1f5f9;">
+          <th style="padding:10px 12px;text-align:left;border-bottom:2px solid #e2e8f0;color:#475569;font-size:13px;">Medicine</th>
+          <th style="padding:10px 12px;text-align:left;border-bottom:2px solid #e2e8f0;color:#475569;font-size:13px;">Dosage</th>
+          <th style="padding:10px 12px;text-align:left;border-bottom:2px solid #e2e8f0;color:#475569;font-size:13px;">Duration</th>
+          <th style="padding:10px 12px;text-align:left;border-bottom:2px solid #e2e8f0;color:#475569;font-size:13px;">Remarks</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${prescriptions.map(rx => `
+          <tr>
+            <td style="padding:10px 12px;border-bottom:1px solid #e2e8f0;color:#1e293b;font-size:14px;">${rx.medicineName}</td>
+            <td style="padding:10px 12px;border-bottom:1px solid #e2e8f0;color:#1e293b;font-size:14px;">${rx.dosage}</td>
+            <td style="padding:10px 12px;border-bottom:1px solid #e2e8f0;color:#475569;font-size:14px;">${rx.duration || '—'}</td>
+            <td style="padding:10px 12px;border-bottom:1px solid #e2e8f0;color:#475569;font-size:14px;">${rx.remarks || '—'}</td>
+          </tr>
+        `).join('')}
+      </tbody>
+    </table>
+    ${ctaButton(`${env.FRONTEND_URL}/dashboard/patient/prescriptions`, 'View My Prescriptions')}
+    <div style="background-color:#fefce8;border-left:4px solid #f59e0b;padding:16px;border-radius:4px;margin:16px 0;">
+      <p style="margin:0;color:#92400e;font-size:13px;">⚠️ This is for informational purposes. Always follow your dentist's instructions.</p>
+    </div>
+  `);
+
+  try {
+    await transporter.sendMail({
+      from: `"DAMS Clinic" <${env.SMTP_USER}>`,
+      to: email,
+      subject: '💊 New Prescription Added — DAMS Clinic',
+      html,
+    });
+    console.log(`📧 Prescription-added email sent to ${email}`);
+  } catch (error) {
+    console.error(`❌ Failed to send prescription-added email to ${email}:`, error);
+  }
+}
+
+/**
+ * Email 12: Notify patient that their appointment has been completed.
+ */
+export async function sendAppointmentCompletedEmail(
+  email: string,
+  patientName: string,
+  dentistName: string,
+  appointmentDate: string | Date,
+  appointmentTime: string
+): Promise<void> {
+  const html = emailWrapper(`
+    <h2 style="margin:0 0 16px;color:#1e293b;font-size:20px;">✅ Appointment Completed</h2>
+    <p style="color:#475569;font-size:15px;line-height:1.6;">
+      Hello ${patientName}, your appointment has been successfully completed. Thank you for visiting us!
+    </p>
+    <div style="background-color:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:20px;margin:16px 0;">
+      <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
+        <tr>
+          <td style="padding:8px 0;color:#64748b;font-size:14px;width:120px;"><strong>Dentist:</strong></td>
+          <td style="padding:8px 0;color:#1e293b;font-size:14px;">Dr. ${dentistName}</td>
+        </tr>
+        <tr>
+          <td style="padding:8px 0;color:#64748b;font-size:14px;"><strong>Date:</strong></td>
+          <td style="padding:8px 0;color:#1e293b;font-size:14px;">${formatDate(appointmentDate)}</td>
+        </tr>
+        <tr>
+          <td style="padding:8px 0;color:#64748b;font-size:14px;"><strong>Time:</strong></td>
+          <td style="padding:8px 0;color:#1e293b;font-size:14px;">${appointmentTime}</td>
+        </tr>
+      </table>
+    </div>
+    <p style="color:#475569;font-size:14px;line-height:1.6;">
+      Your dental records will be available shortly. You can view them in your dashboard once they are ready.
+    </p>
+    ${ctaButton(`${env.FRONTEND_URL}/dashboard/patient/records`, 'View My Records')}
+    <p style="color:#94a3b8;font-size:13px;margin-top:24px;">Thank you for choosing DAMS Clinic. We look forward to seeing you again!</p>
+  `);
+
+  try {
+    await transporter.sendMail({
+      from: `"DAMS Clinic" <${env.SMTP_USER}>`,
+      to: email,
+      subject: '✅ Appointment Completed — DAMS Clinic',
+      html,
+    });
+    console.log(`📧 Appointment-completed email sent to ${email}`);
+  } catch (error) {
+    console.error(`❌ Failed to send appointment-completed email to ${email}:`, error);
+  }
+}
+
+/**
+ * Email 13: 24-hour appointment reminder sent via daily cron job.
+ */
+export async function sendAppointmentReminderEmail(
+  email: string,
+  patientName: string,
+  dentistName: string,
+  appointmentDate: string | Date,
+  appointmentTime: string,
+  reason?: string
+): Promise<void> {
+  const reasonBlock = reason
+    ? `<p style="color:#475569;font-size:14px;line-height:1.6;"><strong>Reason:</strong> ${reason}</p>`
+    : '';
+
+  const html = emailWrapper(`
+    <h2 style="margin:0 0 16px;color:#1e293b;font-size:20px;">⏰ Appointment Reminder</h2>
+    <p style="color:#475569;font-size:15px;line-height:1.6;">
+      Hello ${patientName}, this is a friendly reminder that you have an appointment <strong>tomorrow</strong>!
+    </p>
+    <div style="background-color:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:20px;margin:16px 0;">
+      <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
+        <tr>
+          <td style="padding:8px 0;color:#64748b;font-size:14px;width:120px;"><strong>Dentist:</strong></td>
+          <td style="padding:8px 0;color:#1e293b;font-size:14px;">Dr. ${dentistName}</td>
+        </tr>
+        <tr>
+          <td style="padding:8px 0;color:#64748b;font-size:14px;"><strong>Date:</strong></td>
+          <td style="padding:8px 0;color:#1e293b;font-size:14px;">${formatDate(appointmentDate)}</td>
+        </tr>
+        <tr>
+          <td style="padding:8px 0;color:#64748b;font-size:14px;"><strong>Time:</strong></td>
+          <td style="padding:8px 0;color:#1e293b;font-size:14px;">${appointmentTime}</td>
+        </tr>
+      </table>
+    </div>
+    ${reasonBlock}
+    <div style="background-color:#f0fdf4;border-left:4px solid #22c55e;padding:16px;border-radius:4px;margin:16px 0;">
+      <p style="margin:0;color:#166534;font-size:14px;">📌 <strong>Please arrive 10 minutes early</strong> to allow time for check-in and any necessary preparations.</p>
+    </div>
+    ${ctaButton(`${env.FRONTEND_URL}/dashboard/patient/appointments`, 'View My Appointments')}
+    <p style="color:#94a3b8;font-size:13px;margin-top:24px;">If you need to cancel or reschedule, please contact the clinic as soon as possible.</p>
+  `);
+
+  try {
+    await transporter.sendMail({
+      from: `"DAMS Clinic" <${env.SMTP_USER}>`,
+      to: email,
+      subject: '⏰ Appointment Reminder — Tomorrow — DAMS Clinic',
+      html,
+    });
+    console.log(`📧 Appointment reminder email sent to ${email}`);
+  } catch (error) {
+    console.error(`❌ Failed to send appointment reminder email to ${email}:`, error);
+  }
+}
+
+/**
+ * Email 14: Notify patient that they are being called from the queue.
+ */
+export async function sendQueueCallEmail(
+  email: string,
+  patientName: string,
+  dentistName: string,
+  queueNumber: number
+): Promise<void> {
+  const html = emailWrapper(`
+    <h2 style="margin:0 0 16px;color:#1e293b;font-size:20px;">🔔 It's Your Turn!</h2>
+    <p style="color:#475569;font-size:15px;line-height:1.6;">
+      Hello ${patientName}, you are being called! Please proceed to <strong>Dr. ${dentistName}'s office</strong> immediately.
+    </p>
+    <div style="background-color:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:20px;margin:16px 0;text-align:center;">
+      <p style="margin:0 0 4px;color:#64748b;font-size:13px;">Your Queue Number</p>
+      <p style="margin:0;color:#2563eb;font-size:36px;font-weight:700;">#${queueNumber}</p>
+    </div>
+    <p style="color:#94a3b8;font-size:13px;margin-top:24px;">Please do not delay — proceed to the dentist's office right away.</p>
+  `);
+
+  try {
+    await transporter.sendMail({
+      from: `"DAMS Clinic" <${env.SMTP_USER}>`,
+      to: email,
+      subject: '🔔 It\'s Your Turn — DAMS Clinic',
+      html,
+    });
+    console.log(`📧 Queue call email sent to ${email}`);
+  } catch (error) {
+    console.error(`❌ Failed to send queue call email to ${email}:`, error);
+  }
+}

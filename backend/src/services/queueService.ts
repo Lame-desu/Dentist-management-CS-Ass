@@ -2,6 +2,7 @@ import { query } from '../config/database.js';
 import { AppError } from '../middleware/errorHandler.js';
 import { AppointmentStatus, QueueStatus, NotificationType } from '../utils/constants.js';
 import { createNotification } from './notificationService.js';
+import { sendQueueCallEmail } from './emailService.js';
 
 // ═══════════════════════════════════════════════════════════════
 // ADD TO QUEUE
@@ -153,6 +154,7 @@ export async function getTodayQueue(dentistId?: number) {
 export async function callPatient(queueEntryId: string, receptionistId: string) {
   const entryResult = await query(
     `SELECT qe.*, u_p.full_name AS patient_name, p.user_id AS patient_user_id,
+            u_p.email AS patient_email,
             d.user_id AS dentist_user_id, u_d.full_name AS dentist_name
      FROM queue_entries qe
      INNER JOIN patients p ON p.id = qe.patient_id
@@ -189,6 +191,16 @@ export async function callPatient(queueEntryId: string, receptionistId: string) 
     NotificationType.GENERAL,
     entry.appointment_id
   );
+
+  // Email 14: Notify patient that it's their turn
+  if (entry.patient_email) {
+    sendQueueCallEmail(
+      entry.patient_email,
+      entry.patient_name,
+      entry.dentist_name,
+      entry.queue_number
+    ).catch(() => {});
+  }
 
   return { id: entry.id, status: QueueStatus.IN_PROGRESS };
 }

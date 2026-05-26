@@ -2,6 +2,7 @@ import { query } from '../config/database.js';
 import { AppError } from '../middleware/errorHandler.js';
 import { AppointmentStatus, NotificationType, UserRole } from '../utils/constants.js';
 import { createNotification } from './notificationService.js';
+import { sendDentalRecordEmail } from './emailService.js';
 
 // ─── Interfaces ──────────────────────────────────────────────
 
@@ -140,6 +141,21 @@ export async function createRecord(dentistUserId: string, data: CreateRecordInpu
     NotificationType.GENERAL,
     appointmentId
   );
+
+  // Email 10: Notify patient about dental record creation
+  const patientEmailResult = await query('SELECT email FROM users WHERE id = $1', [appointment.patient_user_id]);
+  if (patientEmailResult.rows.length > 0) {
+    sendDentalRecordEmail(
+      patientEmailResult.rows[0].email,
+      appointment.patient_name,
+      dentist.dentist_name,
+      appointment.appointment_date,
+      diagnosis,
+      treatment,
+      notes,
+      prescriptions
+    ).catch(() => {});
+  }
 
   return {
     ...record,
