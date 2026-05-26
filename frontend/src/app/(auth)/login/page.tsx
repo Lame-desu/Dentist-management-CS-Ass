@@ -4,6 +4,7 @@ import React, { useState, FormEvent } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth, getDashboardPath } from '@/context/AuthContext';
+import { authApi } from '@/lib/api';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Alert } from '@/components/ui/Alert';
@@ -17,6 +18,10 @@ export default function LoginPage() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [showResend, setShowResend] = useState(false);
+  const [resendLoading, setResendLoading] = useState(false);
+  const [resendCooldown, setResendCooldown] = useState(0);
+  const [resendSuccess, setResendSuccess] = useState(false);
 
   // If already authenticated, redirect
   React.useEffect(() => {
@@ -26,9 +31,18 @@ export default function LoginPage() {
     }
   }, [isAuthenticated, user, router, searchParams]);
 
+  // Resend cooldown timer
+  React.useEffect(() => {
+    if (resendCooldown <= 0) return;
+    const timer = setTimeout(() => setResendCooldown(c => c - 1), 1000);
+    return () => clearTimeout(timer);
+  }, [resendCooldown]);
+
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     setError('');
+    setShowResend(false);
+    setResendSuccess(false);
 
     if (!email.trim() || !password.trim()) {
       setError('Please enter both email and password.');
@@ -40,10 +54,30 @@ export default function LoginPage() {
       await login(email, password);
       // Auth context will set user, useEffect above will redirect
     } catch (err: unknown) {
-      const axiosError = err as { response?: { data?: { message?: string } } };
-      setError(axiosError.response?.data?.message || 'Invalid credentials. Please try again.');
+      const axiosError = err as { response?: { data?: { message?: string }; status?: number } };
+      const status = axiosError.response?.status;
+      const message = axiosError.response?.data?.message || 'Invalid credentials. Please try again.';
+      setError(message);
+      if (status === 403) {
+        setShowResend(true);
+      }
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function handleResendVerification() {
+    if (resendCooldown > 0) return;
+    setResendLoading(true);
+    setResendSuccess(false);
+    try {
+      await authApi.resendVerification(email);
+      setResendCooldown(60);
+      setResendSuccess(true);
+    } catch {
+      // Silent fail
+    } finally {
+      setResendLoading(false);
     }
   }
 
@@ -67,6 +101,26 @@ export default function LoginPage() {
             <Alert variant="error" dismissible onDismiss={() => setError('')}>
               {error}
             </Alert>
+          </div>
+        )}
+
+        {/* Resend Verification Section */}
+        {showResend && (
+          <div className="mb-6">
+            {resendSuccess && (
+              <Alert variant="success" dismissible onDismiss={() => setResendSuccess(false)}>
+                Verification email sent! Check your inbox.
+              </Alert>
+            )}
+            {!resendSuccess && (
+              <button
+                onClick={handleResendVerification}
+                disabled={resendCooldown > 0 || resendLoading}
+                className="w-full rounded-lg border border-primary-500/30 bg-primary-500/10 py-2 text-sm font-medium text-primary-400 transition-all hover:bg-primary-500/20 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {resendLoading ? 'Sending...' : resendCooldown > 0 ? `Resend in ${resendCooldown}s` : 'Resend Verification Email'}
+              </button>
+            )}
           </div>
         )}
 

@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useCallback } from 'react';
-import { authApi, dentistApi, appointmentApi } from '@/lib/api';
+import { dentistApi, appointmentApi } from '@/lib/api';
 import { useToast } from '@/components/ui/Toast';
 import { Card } from '@/components/ui/Card';
 import { Input } from '@/components/ui/Input';
@@ -38,7 +38,6 @@ export default function WalkInPage() {
     fullName: '',
     email: '',
     phoneNumber: '',
-    password: 'Temp@12345',
     gender: '',
     address: '',
     dateOfBirth: '',
@@ -141,37 +140,23 @@ export default function WalkInPage() {
       addToast({ type: 'error', title: 'Validation', message: 'Name, phone, and email are required' });
       return;
     }
-    try {
-      setRegistering(true);
-      const res = await authApi.register({
+    // Store patient data locally — the walk-in endpoint will create the patient
+    const patient = {
+      id: null,
+      full_name: regForm.fullName,
+      phone_number: regForm.phoneNumber,
+      email: regForm.email,
+      isNew: true,
+      patientData: {
         fullName: regForm.fullName,
         email: regForm.email,
-        password: regForm.password,
         phoneNumber: regForm.phoneNumber,
         dateOfBirth: regForm.dateOfBirth || undefined,
         gender: regForm.gender || undefined,
-        address: regForm.address || undefined,
-        emergencyContact: regForm.emergencyContact || undefined,
-      });
-      const newUser = res.data?.data?.user;
-      if (newUser) {
-        // We need the patient record ID — for walk-in we use the profile_id or query again
-        const patient = {
-          id: newUser.profile_id || newUser.id,
-          user_id: newUser.id,
-          full_name: newUser.full_name,
-          phone_number: newUser.phone_number,
-          email: newUser.email,
-        };
-        addToast({ type: 'success', title: 'Patient Registered', message: `${newUser.full_name} has been registered.` });
-        proceedToBook(patient);
-      }
-    } catch (err: unknown) {
-      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message || 'Registration failed';
-      addToast({ type: 'error', title: 'Error', message: msg });
-    } finally {
-      setRegistering(false);
-    }
+      },
+    };
+    addToast({ type: 'success', title: 'Patient Ready', message: 'Continue to book an appointment.' });
+    proceedToBook(patient);
   };
 
   // Submit walk-in appointment
@@ -182,14 +167,21 @@ export default function WalkInPage() {
     }
     try {
       setSubmitting(true);
-      await appointmentApi.createWalkIn({
-        patientId: selectedPatient.id,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const payload: Record<string, any> = {
         dentistId: selectedDentist.dentist_id || selectedDentist.id,
         appointmentDate: bookForm.appointmentDate,
         appointmentTime: bookForm.appointmentTime,
         reason: bookForm.reason || 'Walk-in visit',
         isEmergency: bookForm.isEmergency,
-      });
+      };
+      if (selectedPatient.isNew && selectedPatient.patientData) {
+        payload.patientData = selectedPatient.patientData;
+      } else {
+        payload.patientId = selectedPatient.id;
+      }
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await appointmentApi.createWalkIn(payload as any);
       setStep('success');
       addToast({ type: 'success', title: 'Walk-in Created', message: 'Appointment created and forwarded to dentist.' });
     } catch (err: unknown) {
@@ -340,7 +332,7 @@ export default function WalkInPage() {
               placeholder="Patient's address"
             />
             <Alert variant="info">
-              A temporary password <code className="font-mono bg-surface-200 dark:bg-surface-600 px-1 rounded">Temp@12345</code> will be set. The patient can change it later.
+              An email will be sent to the patient to set their password and access their account online. You can continue with the appointment regardless.
             </Alert>
             <div className="flex justify-between pt-2">
               <Button variant="secondary" onClick={() => setStep('lookup')}>Back</Button>

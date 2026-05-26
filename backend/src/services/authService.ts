@@ -1,10 +1,12 @@
 import bcrypt from 'bcryptjs';
+import crypto from 'crypto';
 import jwt from 'jsonwebtoken';
 import { query } from '../config/database.js';
 import env from '../config/env.js';
 import { AppError } from '../middleware/errorHandler.js';
 import { UserRole } from '../utils/constants.js';
 import { JwtPayload } from '../types/index.js';
+import { sendVerificationEmail, sendPasswordSetEmail } from './emailService.js';
 
 // ─── Interfaces ──────────────────────────────────────────────
 
@@ -71,8 +73,8 @@ export async function register(data: RegisterInput) {
 
   // Create user record
   const userResult = await query(
-    `INSERT INTO users (full_name, email, phone_number, password_hash, role)
-     VALUES ($1, $2, $3, $4, $5)
+    `INSERT INTO users (full_name, email, phone_number, password_hash, role, is_email_verified)
+     VALUES ($1, $2, $3, $4, $5, false)
      RETURNING id, full_name, email, phone_number, role, profile_photo, is_active, created_at, updated_at`,
     [data.fullName, data.email, data.phoneNumber || null, passwordHash, UserRole.PATIENT]
   );
@@ -94,16 +96,21 @@ export async function register(data: RegisterInput) {
     ]
   );
 
-  // Generate JWT
-  const token = generateToken({
-    userId: user.id.toString(),
-    email: user.email,
-    role: user.role,
-  });
+  // Generate email verification token
+  const verificationToken = crypto.randomBytes(32).toString('hex');
+  const tokenExpiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
+
+  await query(
+    'UPDATE users SET email_verification_token = $1, email_token_expires_at = $2 WHERE id = $3',
+    [verificationToken, tokenExpiresAt, user.id]
+  );
+
+  // Send verification email
+  await sendVerificationEmail(data.email, data.fullName, verificationToken);
 
   return {
-    user: sanitizeUser(user),
-    token,
+    message: 'Registration successful. Please check your email to verify your account.',
+    email: data.email,
   };
 }
 
@@ -123,6 +130,16 @@ export async function login(data: LoginInput) {
   // Check if account is active
   if (!user.is_active) {
     throw new AppError('Your account has been deactivated. Please contact the clinic.', 403);
+  }
+
+  // Check if user has set their password (invited users may not have one)
+  if (!user.password_hash) {
+    throw new AppError('Please set your password first. Check your inbox for the invitation link.', 403);
+  }
+
+  // Check if email is verified
+  if (!user.is_email_verified) {
+    throw new AppError('Please verify your email address before logging in. Check your inbox for the verification link.', 403);
   }
 
   // Verify password
@@ -339,4 +356,102 @@ async function resolveProfileId(userId: number, role: string): Promise<number | 
 
   const result = await query(`SELECT id FROM ${table} WHERE user_id = $1`, [userId]);
   return result.rows.length > 0 ? result.rows[0].id : null;
+}
+
+// ─── Email Verification Functions ────────────────────────────
+
+/**
+ * Verify a user's email address using the verification token.
+ */
+export async function verifyEmail(token: string) {
+  const result = await query(
+    'SELECT id, full_name, email, email_token_expires_at FROM users WHERE email_verification_token = $1',
+    [token]
+  );
+
+  if (result.rows.length === 0) {
+    throw new AppError('Invalid or expired verification link.', 400);
+  }
+
+  const user = result.rows[0];
+
+  if (new Date() > new Date(user.email_token_expires_at)) {
+    throw new AppError('This verification link has expired. Please request a new one.', 400);
+  }
+
+  await query(
+    'UPDATE users SET is_email_verified = true, email_verification_token = NULL, email_token_expires_at = NULL WHERE id = $1',
+    [user.id]
+  );
+
+  return { message: 'Email verified successfully. You can now log in.' };
+}
+
+/**
+ * Set password for an invited user (using their email token).
+ */
+export async function setPassword(token: string, password: string) {
+  const result = await query(
+    'SELECT id, full_name, email, email_token_expires_at FROM users WHERE email_verification_token = $1',
+    [token]
+  );
+
+  if (result.rows.length === 0) {
+    throw new AppError('Invalid or expired link.', 400);
+  }
+
+  const user = result.rows[0];
+
+  if (new Date() > new Date(user.email_token_expires_at)) {
+    throw new AppError('This link has expired. Please request a new one.', 400);
+  }
+
+  const passwordHash = await bcrypt.hash(password, 10);
+
+  await query(
+    'UPDATE users SET password_hash = $1, is_email_verified = true, email_verification_token = NULL, email_token_expires_at = NULL WHERE id = $2',
+    [passwordHash, user.id]
+  );
+
+  return { message: 'Password set successfully. You can now log in.' };
+}
+
+/**
+ * Resend verification or invitation email.
+ */
+export async function resendVerification(email: string) {
+  const result = await query(
+    'SELECT id, full_name, email, role, password_hash, is_email_verified FROM users WHERE email = $1',
+    [email]
+  );
+
+  if (result.rows.length === 0) {
+    // Don't reveal if email exists
+    return { message: 'If an account with that email exists, a verification email has been sent.' };
+  }
+
+  const user = result.rows[0];
+
+  if (user.is_email_verified) {
+    return { message: 'This email is already verified. You can log in.' };
+  }
+
+  const token = crypto.randomBytes(32).toString('hex');
+  const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
+
+  await query(
+    'UPDATE users SET email_verification_token = $1, email_token_expires_at = $2 WHERE id = $3',
+    [token, expiresAt, user.id]
+  );
+
+  // Determine which type of email to send
+  if (user.password_hash) {
+    // User has a password (self-registered patient) — send verification email
+    await sendVerificationEmail(user.email, user.full_name, token);
+  } else {
+    // User has no password (invited) — send invitation/set-password email
+    await sendPasswordSetEmail(user.email, user.full_name, token);
+  }
+
+  return { message: 'If an account with that email exists, a verification email has been sent.' };
 }

@@ -43,7 +43,7 @@ api.interceptors.response.use(
         localStorage.removeItem('dams_token');
         localStorage.removeItem('dams_user');
         // Only redirect if not already on an auth page
-        if (!window.location.pathname.startsWith('/login') && !window.location.pathname.startsWith('/register')) {
+        if (!window.location.pathname.startsWith('/login') && !window.location.pathname.startsWith('/register') && !window.location.pathname.startsWith('/verify-email') && !window.location.pathname.startsWith('/set-password')) {
           window.location.href = '/login';
         }
       }
@@ -102,6 +102,15 @@ export const authApi = {
 
   changePassword: (data: ChangePasswordPayload) =>
     api.put('/auth/password', data),
+
+  verifyEmail: (token: string) =>
+    api.get(`/auth/verify-email?token=${token}`),
+
+  setPassword: (data: { token: string; password: string }) =>
+    api.post('/auth/set-password', data),
+
+  resendVerification: (email: string) =>
+    api.post('/auth/resend-verification', { email }),
 };
 
 // ─── Dentist API ─────────────────────────────────────────────────

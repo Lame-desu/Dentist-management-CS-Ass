@@ -18,6 +18,15 @@ router.post('/register', validate(registerValidation), authController.register);
 // POST /api/auth/login — Login with email and password
 router.post('/login', validate(loginValidation), authController.login);
 
+// GET /api/auth/verify-email — Verify email address with token
+router.get('/verify-email', authController.verifyEmail);
+
+// POST /api/auth/set-password — Set password for invited user
+router.post('/set-password', authController.setPassword);
+
+// POST /api/auth/resend-verification — Resend verification or invitation email
+router.post('/resend-verification', authController.resendVerification);
+
 // ─── Protected Routes ────────────────────────────────────────
 
 // GET /api/auth/profile — Get current user's profile

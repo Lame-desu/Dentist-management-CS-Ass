@@ -28,7 +28,7 @@ interface AuthContextType {
   isLoading: boolean;
   isAuthenticated: boolean;
   login: (email: string, password: string) => Promise<void>;
-  register: (data: RegisterPayload) => Promise<void>;
+  register: (data: RegisterPayload) => Promise<unknown>;
   logout: () => void;
   updateProfile: (data: ProfileUpdatePayload) => Promise<void>;
 }
@@ -124,12 +124,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const register = useCallback(async (data: RegisterPayload) => {
     const res = await authApi.register(data);
-    const { token: newToken, user: newUser } = res.data.data;
-
-    localStorage.setItem('dams_token', newToken);
-    localStorage.setItem('dams_user', JSON.stringify(newUser));
-    setToken(newToken);
-    setUser(newUser);
+    // Registration now requires email verification — don't auto-login
+    return res.data;
   }, []);
 
   const logout = useCallback(() => {

@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useState, useCallback } from 'react';
-import { userApi } from '@/lib/api';
+import { userApi, authApi } from '@/lib/api';
 import { useToast } from '@/components/ui/Toast';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
@@ -37,7 +37,6 @@ export default function StaffManagementPage() {
     fullName: '',
     email: '',
     phoneNumber: '',
-    password: '',
     specialization: '',
     licenseNumber: '',
     yearsOfExperience: '',
@@ -84,7 +83,6 @@ export default function StaffManagementPage() {
     if (!addForm.fullName.trim()) errs.fullName = 'Name is required';
     if (!addForm.email.trim()) errs.email = 'Email is required';
     if (!addForm.phoneNumber.trim()) errs.phoneNumber = 'Phone is required';
-    if (!addForm.password || addForm.password.length < 8) errs.password = 'Password must be at least 8 characters';
     if (addForm.role === 'dentist') {
       if (!addForm.specialization.trim()) errs.specialization = 'Specialization is required';
       if (!addForm.licenseNumber.trim()) errs.licenseNumber = 'License number is required';
@@ -101,7 +99,6 @@ export default function StaffManagementPage() {
         fullName: addForm.fullName,
         email: addForm.email,
         phoneNumber: addForm.phoneNumber,
-        password: addForm.password,
         role: addForm.role,
       };
       if (addForm.role === 'dentist') {
@@ -113,9 +110,9 @@ export default function StaffManagementPage() {
         payload.shift = addForm.shift;
       }
       await userApi.createStaff(payload);
-      addToast({ type: 'success', title: 'Staff Created', message: `${addForm.role === 'dentist' ? 'Dentist' : 'Receptionist'} account created.` });
+      addToast({ type: 'success', title: 'Staff Created', message: `${addForm.role === 'dentist' ? 'Dentist' : 'Receptionist'} account created. An invitation email has been sent.` });
       setShowAddModal(false);
-      setAddForm({ role: 'dentist', fullName: '', email: '', phoneNumber: '', password: '', specialization: '', licenseNumber: '', yearsOfExperience: '', bio: '', shift: 'full_day' });
+      setAddForm({ role: 'dentist', fullName: '', email: '', phoneNumber: '', specialization: '', licenseNumber: '', yearsOfExperience: '', bio: '', shift: 'full_day' });
       setAddErrors({});
       loadUsers();
     } catch (err: unknown) {
@@ -250,6 +247,7 @@ export default function StaffManagementPage() {
                   <th className="px-4 py-3 text-left font-medium text-surface-500 dark:text-surface-400">Role</th>
                   <th className="px-4 py-3 text-left font-medium text-surface-500 dark:text-surface-400 hidden md:table-cell">Detail</th>
                   <th className="px-4 py-3 text-left font-medium text-surface-500 dark:text-surface-400">Status</th>
+                  <th className="px-4 py-3 text-left font-medium text-surface-500 dark:text-surface-400">Verified</th>
                   <th className="px-4 py-3 text-right font-medium text-surface-500 dark:text-surface-400">Actions</th>
                 </tr>
               </thead>
@@ -274,9 +272,34 @@ export default function StaffManagementPage() {
                         {u.is_active !== false ? 'Active' : 'Inactive'}
                       </Badge>
                     </td>
+                    <td className="px-4 py-3">
+                      {u.is_email_verified ? (
+                        <Badge variant="success">Verified</Badge>
+                      ) : (
+                        <Badge variant="warning">Pending</Badge>
+                      )}
+                    </td>
                     <td className="px-4 py-3 text-right">
                       <div className="flex items-center justify-end gap-1">
                         <Button variant="ghost" size="sm" onClick={() => openEdit(u)}>Edit</Button>
+                        {u.is_email_verified === false && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={async (e) => {
+                              e.stopPropagation();
+                              try {
+                                await authApi.resendVerification(u.email);
+                                addToast({ type: 'success', title: 'Sent', message: 'Invitation email resent.' });
+                              } catch {
+                                addToast({ type: 'error', title: 'Error', message: 'Failed to resend.' });
+                              }
+                            }}
+                            className="text-primary-600 hover:text-primary-700"
+                          >
+                            Resend
+                          </Button>
+                        )}
                         <Button
                           variant="ghost"
                           size="sm"
@@ -323,7 +346,11 @@ export default function StaffManagementPage() {
             <Input label="Full Name *" value={addForm.fullName} onChange={(e) => setAddForm(prev => ({ ...prev, fullName: e.target.value }))} error={addErrors.fullName} />
             <Input label="Email *" type="email" value={addForm.email} onChange={(e) => setAddForm(prev => ({ ...prev, email: e.target.value }))} error={addErrors.email} />
             <Input label="Phone *" value={addForm.phoneNumber} onChange={(e) => setAddForm(prev => ({ ...prev, phoneNumber: e.target.value }))} error={addErrors.phoneNumber} />
-            <Input label="Password *" type="password" value={addForm.password} onChange={(e) => setAddForm(prev => ({ ...prev, password: e.target.value }))} error={addErrors.password} />
+            <div className="sm:col-span-2 rounded-lg border border-primary-500/20 bg-primary-500/5 px-4 py-3">
+              <p className="text-sm text-primary-300">
+                📧 An invitation email will be sent to the staff member. They will set their own password.
+              </p>
+            </div>
           </div>
 
           {addForm.role === 'dentist' && (

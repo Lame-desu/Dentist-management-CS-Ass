@@ -92,3 +92,54 @@ export async function updateProfile(req: Request, res: Response, next: NextFunct
     next(error);
   }
 }
+
+/**
+ * GET /api/auth/verify-email
+ * Verify email address using token from query string.
+ */
+export async function verifyEmail(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const token = req.query.token as string;
+    if (!token) {
+      throw new AppError('Verification token is required.', 400);
+    }
+    const result = await authService.verifyEmail(token);
+    successResponse(res, result, result.message);
+  } catch (error) {
+    next(error);
+  }
+}
+
+/**
+ * POST /api/auth/set-password
+ * Set password for an invited user using their email token.
+ */
+export async function setPassword(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const { token, password } = req.body;
+    if (!token || !password) {
+      throw new AppError('Token and password are required.', 400);
+    }
+    const result = await authService.setPassword(token, password);
+    successResponse(res, result, result.message);
+  } catch (error) {
+    next(error);
+  }
+}
+
+/**
+ * POST /api/auth/resend-verification
+ * Resend verification or invitation email.
+ */
+export async function resendVerification(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const { email } = req.body;
+    if (!email) {
+      throw new AppError('Email is required.', 400);
+    }
+    const result = await authService.resendVerification(email);
+    successResponse(res, result, result.message);
+  } catch (error) {
+    next(error);
+  }
+}

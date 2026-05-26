@@ -4,6 +4,7 @@ import React, { useState, FormEvent } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAuth, getDashboardPath } from '@/context/AuthContext';
+import { authApi } from '@/lib/api';
 import { Button } from '@/components/ui/Button';
 import { Alert } from '@/components/ui/Alert';
 
@@ -35,6 +36,10 @@ export default function RegisterPage() {
   const [errors, setErrors] = useState<FormErrors>({});
   const [serverError, setServerError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [registrationSuccess, setRegistrationSuccess] = useState(false);
+  const [registeredEmail, setRegisteredEmail] = useState('');
+  const [resendLoading, setResendLoading] = useState(false);
+  const [resendCooldown, setResendCooldown] = useState(0);
 
   // If already authenticated, redirect
   React.useEffect(() => {
@@ -42,6 +47,13 @@ export default function RegisterPage() {
       router.replace(getDashboardPath(user.role));
     }
   }, [isAuthenticated, user, router]);
+
+  // Resend cooldown timer
+  React.useEffect(() => {
+    if (resendCooldown <= 0) return;
+    const timer = setTimeout(() => setResendCooldown(c => c - 1), 1000);
+    return () => clearTimeout(timer);
+  }, [resendCooldown]);
 
   function updateField(field: string, value: string) {
     setFormData((prev) => ({ ...prev, [field]: value }));
@@ -116,7 +128,8 @@ export default function RegisterPage() {
         address: formData.address || undefined,
         emergencyContact: formData.emergencyContact || undefined,
       });
-      // Auth context will set user, useEffect above will redirect
+      setRegistrationSuccess(true);
+      setRegisteredEmail(formData.email);
     } catch (err: unknown) {
       const axiosError = err as { response?: { data?: { message?: string } } };
       setServerError(
@@ -127,10 +140,63 @@ export default function RegisterPage() {
     }
   }
 
+  async function handleResendVerification() {
+    if (resendCooldown > 0) return;
+    setResendLoading(true);
+    try {
+      await authApi.resendVerification(registeredEmail);
+      setResendCooldown(60);
+    } catch {
+      // Silent fail
+    } finally {
+      setResendLoading(false);
+    }
+  }
+
   const inputClass = (field: keyof FormErrors) =>
     `w-full rounded-lg border ${
       errors[field] ? 'border-rose-500/50' : 'border-white/10'
     } bg-white/5 px-4 py-2.5 text-sm text-white placeholder-surface-500 transition-all focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20`;
+
+  if (registrationSuccess) {
+    return (
+      <div className="mx-auto w-full max-w-md animate-slide-up">
+        <div className="rounded-2xl border border-white/10 bg-white/5 p-8 shadow-2xl backdrop-blur-xl sm:p-10">
+          <div className="text-center">
+            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-emerald-500/20 ring-1 ring-emerald-400/30">
+              <svg className="h-8 w-8 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" />
+              </svg>
+            </div>
+            <h1 className="text-2xl font-bold text-white">Check Your Email</h1>
+            <p className="mt-3 text-sm text-surface-400">
+              We&apos;ve sent a verification link to
+            </p>
+            <p className="mt-1 font-semibold text-primary-400">{registeredEmail}</p>
+            <p className="mt-3 text-sm text-surface-400">
+              Click the link in your email to verify your account and start using DAMS.
+            </p>
+
+            <div className="mt-8 space-y-3">
+              <button
+                onClick={handleResendVerification}
+                disabled={resendCooldown > 0 || resendLoading}
+                className="w-full rounded-xl border border-white/10 bg-white/5 py-2.5 text-sm font-medium text-surface-300 transition-all hover:bg-white/10 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {resendLoading ? 'Sending...' : resendCooldown > 0 ? `Resend in ${resendCooldown}s` : 'Resend Verification Email'}
+              </button>
+              <Link
+                href="/login"
+                className="block w-full rounded-xl bg-primary-600 py-2.5 text-center text-sm font-semibold text-white transition-all hover:bg-primary-500 shadow-lg shadow-primary-500/25"
+              >
+                Go to Login
+              </Link>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="mx-auto w-full max-w-4xl animate-slide-up">

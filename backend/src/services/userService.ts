@@ -1,7 +1,9 @@
 import bcrypt from 'bcryptjs';
+import crypto from 'crypto';
 import { query } from '../config/database.js';
 import { AppError } from '../middleware/errorHandler.js';
 import { UserRole } from '../utils/constants.js';
+import { sendInvitationEmail } from './emailService.js';
 
 // ─── Interfaces ──────────────────────────────────────────────
 
@@ -14,7 +16,7 @@ interface UserFilters {
 interface StaffUserInput {
   fullName: string;
   email: string;
-  password: string;
+  password?: string;
   phoneNumber?: string;
   role: 'dentist' | 'receptionist';
   // Dentist-specific
@@ -80,7 +82,7 @@ export async function getAllUsers(filters: UserFilters = {}) {
 
   // Get paginated users
   const usersResult = await query(
-    `SELECT id, full_name, email, phone_number, role, profile_photo, is_active, created_at, updated_at
+    `SELECT id, full_name, email, phone_number, role, profile_photo, is_active, is_email_verified, created_at, updated_at
      FROM users ${whereClause}
      ORDER BY created_at DESC
      LIMIT $${paramIdx++} OFFSET $${paramIdx}`,
@@ -103,7 +105,7 @@ export async function getAllUsers(filters: UserFilters = {}) {
  */
 export async function getUserById(id: string) {
   const userResult = await query(
-    `SELECT id, full_name, email, phone_number, role, profile_photo, is_active, created_at, updated_at
+    `SELECT id, full_name, email, phone_number, role, profile_photo, is_active, is_email_verified, created_at, updated_at
      FROM users WHERE id = $1`,
     [id]
   );
@@ -174,8 +176,8 @@ export async function createStaffUser(data: StaffUserInput) {
     throw new AppError('An account with this email already exists.', 409);
   }
 
-  // Hash password
-  const passwordHash = await bcrypt.hash(data.password, 10);
+  // Hash password (if provided; otherwise null for invited users)
+  const passwordHash = data.password ? await bcrypt.hash(data.password, 10) : null;
 
   // Create user record
   const userResult = await query(
@@ -222,6 +224,15 @@ export async function createStaffUser(data: StaffUserInput) {
       [user.id, data.shift || null]
     );
   }
+
+  // Generate verification token and send invitation email
+  const token = crypto.randomBytes(32).toString('hex');
+  const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
+  await query(
+    'UPDATE users SET email_verification_token = $1, email_token_expires_at = $2 WHERE id = $3',
+    [token, expiresAt, user.id]
+  );
+  await sendInvitationEmail(data.email, data.fullName, data.role, token);
 
   return getUserById(user.id.toString());
 }

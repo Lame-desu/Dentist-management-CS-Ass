@@ -8,6 +8,9 @@ interface EnvConfig {
   DATABASE_URL: string;
   JWT_SECRET: string;
   JWT_EXPIRES_IN: string;
+  SMTP_USER: string;
+  SMTP_APP_PASSWORD: string;
+  FRONTEND_URL: string;
 }
 
 const env: EnvConfig = {
@@ -16,6 +19,9 @@ const env: EnvConfig = {
   DATABASE_URL: process.env.DATABASE_URL || 'postgresql://dams_user:dams_password@localhost:5432/dams',
   JWT_SECRET: process.env.JWT_SECRET || 'dams-jwt-secret-change-in-production',
   JWT_EXPIRES_IN: process.env.JWT_EXPIRES_IN || '7d',
+  SMTP_USER: process.env.SMTP_USER || '',
+  SMTP_APP_PASSWORD: process.env.SMTP_APP_PASSWORD || '',
+  FRONTEND_URL: process.env.FRONTEND_URL || 'http://localhost:3000',
 };
 
 // Validate required environment variables

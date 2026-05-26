@@ -2,6 +2,18 @@ import { query } from '../config/database.js';
 import { AppError } from '../middleware/errorHandler.js';
 import { AppointmentStatus, NotificationType, UserRole } from '../utils/constants.js';
 import { createNotification } from './notificationService.js';
+import {
+  sendNewAppointmentRequestEmail,
+  sendAppointmentForwardedEmail,
+  sendAppointmentRejectedEmail,
+  sendAppointmentAssignedEmail,
+  sendAppointmentReassignedEmail,
+  sendAppointmentApprovedEmail,
+  sendDentistRejectedNotificationEmail,
+  sendAppointmentRescheduleEmail,
+  sendAppointmentCancelledEmail,
+  sendWalkInAppointmentEmail,
+} from './emailService.js';
 
 
 interface CreateAppointmentInput {
@@ -180,7 +192,7 @@ export async function createAppointment(patientUserId: string, data: CreateAppoi
 
   // 10. Notify ALL active receptionists
   const receptionists = await query(
-    `SELECT u.id AS user_id FROM users u
+    `SELECT u.id AS user_id, u.email, u.full_name FROM users u
      INNER JOIN receptionists r ON r.user_id = u.id
      WHERE u.is_active = true`
   );
@@ -193,6 +205,18 @@ export async function createAppointment(patientUserId: string, data: CreateAppoi
       NotificationType.APPOINTMENT_REQUEST,
       appointment.id
     );
+
+    // Email 9: Notify receptionist about new appointment request
+    sendNewAppointmentRequestEmail(
+      rec.email,
+      rec.full_name,
+      patient.patient_name,
+      dentist.dentist_name,
+      appointmentDate,
+      appointmentTime,
+      isEmergency,
+      reason
+    ).catch(() => {});
   }
 
   return appointment;
@@ -315,6 +339,20 @@ export async function cancelAppointment(appointmentId: string, userId: string, r
       NotificationType.APPOINTMENT_CANCELLED,
       appointment.id
     );
+
+    // Email 7: Notify patient about cancellation
+    const patientEmailResult = await query('SELECT email, full_name FROM users WHERE id = $1', [appointment.patient_user_id]);
+    if (patientEmailResult.rows.length > 0) {
+      sendAppointmentCancelledEmail(
+        patientEmailResult.rows[0].email,
+        patientEmailResult.rows[0].full_name,
+        role,
+        appointment.patient_name,
+        appointment.dentist_name,
+        appointment.appointment_date,
+        appointment.appointment_time
+      ).catch(() => {});
+    }
   }
 
   // Notify dentist
@@ -326,10 +364,24 @@ export async function cancelAppointment(appointmentId: string, userId: string, r
     appointment.id
   );
 
+  // Email 7: Notify dentist about cancellation
+  const dentistEmailResult = await query('SELECT email, full_name FROM users WHERE id = $1', [appointment.dentist_user_id]);
+  if (dentistEmailResult.rows.length > 0) {
+    sendAppointmentCancelledEmail(
+      dentistEmailResult.rows[0].email,
+      dentistEmailResult.rows[0].full_name,
+      role,
+      appointment.patient_name,
+      appointment.dentist_name,
+      appointment.appointment_date,
+      appointment.appointment_time
+    ).catch(() => {});
+  }
+
   // Notify receptionists (if patient cancelled)
   if (role === UserRole.PATIENT) {
     const receptionists = await query(
-      `SELECT u.id AS user_id FROM users u
+      `SELECT u.id AS user_id, u.email, u.full_name FROM users u
        INNER JOIN receptionists r ON r.user_id = u.id
        WHERE u.is_active = true`
     );
@@ -341,6 +393,17 @@ export async function cancelAppointment(appointmentId: string, userId: string, r
         NotificationType.APPOINTMENT_CANCELLED,
         appointment.id
       );
+
+      // Email 7: Notify receptionist about cancellation
+      sendAppointmentCancelledEmail(
+        rec.email,
+        rec.full_name,
+        role,
+        appointment.patient_name,
+        appointment.dentist_name,
+        appointment.appointment_date,
+        appointment.appointment_time
+      ).catch(() => {});
     }
   }
 
@@ -430,6 +493,20 @@ export async function reviewAppointment(
         appointment.id
       );
 
+      // Email 1: Notify dentist about forwarded appointment
+      const dentistEmailResult = await query('SELECT email, full_name FROM users WHERE id = $1', [appointment.dentist_user_id]);
+      if (dentistEmailResult.rows.length > 0) {
+        sendAppointmentForwardedEmail(
+          dentistEmailResult.rows[0].email,
+          dentistEmailResult.rows[0].full_name,
+          appointment.patient_name,
+          appointment.appointment_date,
+          appointment.appointment_time,
+          appointment.reason,
+          appointment.is_emergency
+        ).catch(() => {});
+      }
+
       return { id: appointment.id, status: AppointmentStatus.FORWARDED };
     }
 
@@ -451,6 +528,19 @@ export async function reviewAppointment(
         NotificationType.APPOINTMENT_REJECTED,
         appointment.id
       );
+
+      // Email 3: Notify patient about rejection by receptionist
+      const patientEmailResult = await query('SELECT email FROM users WHERE id = $1', [appointment.patient_user_id]);
+      if (patientEmailResult.rows.length > 0) {
+        sendAppointmentRejectedEmail(
+          patientEmailResult.rows[0].email,
+          appointment.patient_name,
+          appointment.appointment_date,
+          appointment.appointment_time,
+          data.rejectionReason,
+          'receptionist'
+        ).catch(() => {});
+      }
 
       return { id: appointment.id, status: AppointmentStatus.REJECTED };
     }
@@ -513,6 +603,19 @@ export async function reviewAppointment(
         appointment.id
       );
 
+      // Email 2a: Notify new dentist about assigned appointment
+      const newDentistEmailResult = await query('SELECT email, full_name FROM users WHERE id = $1', [newDentist.user_id]);
+      if (newDentistEmailResult.rows.length > 0) {
+        sendAppointmentAssignedEmail(
+          newDentistEmailResult.rows[0].email,
+          newDentistEmailResult.rows[0].full_name,
+          appointment.patient_name,
+          appointment.appointment_date,
+          appointment.appointment_time,
+          appointment.reason
+        ).catch(() => {});
+      }
+
       // Notify patient about reassignment
       await createNotification(
         appointment.patient_user_id,
@@ -521,6 +624,19 @@ export async function reviewAppointment(
         NotificationType.APPOINTMENT_FORWARDED,
         appointment.id
       );
+
+      // Email 2b: Notify patient about reassignment
+      const patientEmailResult = await query('SELECT email FROM users WHERE id = $1', [appointment.patient_user_id]);
+      if (patientEmailResult.rows.length > 0) {
+        sendAppointmentReassignedEmail(
+          patientEmailResult.rows[0].email,
+          appointment.patient_name,
+          appointment.dentist_name,
+          newDentist.dentist_name,
+          appointment.appointment_date,
+          appointment.appointment_time
+        ).catch(() => {});
+      }
 
       return { id: appointment.id, status: AppointmentStatus.FORWARDED, newDentistId: data.newDentistId };
     }
@@ -616,20 +732,24 @@ export async function createWalkInAppointment(receptionistUserId: string, data: 
         throw new AppError('User found but has no patient profile. Contact admin.', 400);
       }
     } else {
-      // Create new user + patient profile (walk-in with temp password)
-      const bcrypt = await import('bcryptjs');
-      const tempPassword = await bcrypt.hash('walkin_temp_' + Date.now(), 10);
+      // Create new user + patient profile (invited via email)
+      const crypto = await import('crypto');
+      const { sendInvitationEmail: sendInvite } = await import('./emailService.js');
+      const emailToken = crypto.randomBytes(32).toString('hex');
+      const tokenExpiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
+      const patientEmail = data.patientData.email || `walkin_${Date.now()}@temp.local`;
 
       const newUserResult = await query(
-        `INSERT INTO users (full_name, email, phone_number, password_hash, role)
-         VALUES ($1, $2, $3, $4, $5)
+        `INSERT INTO users (full_name, email, phone_number, password_hash, role, email_verification_token, email_token_expires_at)
+         VALUES ($1, $2, $3, NULL, $4, $5, $6)
          RETURNING id`,
         [
           data.patientData.fullName,
-          data.patientData.email || `walkin_${Date.now()}@temp.local`,
+          patientEmail,
           data.patientData.phoneNumber || null,
-          tempPassword,
           UserRole.PATIENT,
+          emailToken,
+          tokenExpiresAt,
         ]
       );
 
@@ -647,6 +767,11 @@ export async function createWalkInAppointment(receptionistUserId: string, data: 
       );
 
       patientId = newPatientResult.rows[0].id;
+
+      // Send invitation email (non-blocking — don't await, fire and forget)
+      if (data.patientData.email) {
+        sendInvite(patientEmail, data.patientData.fullName, 'patient', emailToken).catch(() => {});
+      }
     }
   } else {
     throw new AppError('Either patientId or patientData must be provided.', 400);
@@ -709,6 +834,23 @@ export async function createWalkInAppointment(receptionistUserId: string, data: 
     NotificationType.APPOINTMENT_FORWARDED,
     appointment.id
   );
+
+  // Email 8: Notify dentist about walk-in appointment
+  const dentistEmailResult = await query('SELECT email, full_name FROM users WHERE id = $1', [dentist.user_id]);
+  // Resolve patient name for the email
+  const walkInPatientName = data.patientData?.fullName
+    || (await query('SELECT u.full_name FROM patients p INNER JOIN users u ON u.id = p.user_id WHERE p.id = $1', [patientId])).rows[0]?.full_name
+    || 'Walk-in Patient';
+  if (dentistEmailResult.rows.length > 0) {
+    sendWalkInAppointmentEmail(
+      dentistEmailResult.rows[0].email,
+      dentistEmailResult.rows[0].full_name,
+      walkInPatientName,
+      appointmentDate,
+      appointmentTime,
+      isEmergency
+    ).catch(() => {});
+  }
 
   return appointment;
 }
@@ -921,6 +1063,18 @@ export async function respondToAppointment(
         appointment.id
       );
 
+      // Email 4: Notify patient about approval
+      const approvedPatientEmail = await query('SELECT email FROM users WHERE id = $1', [appointment.patient_user_id]);
+      if (approvedPatientEmail.rows.length > 0) {
+        sendAppointmentApprovedEmail(
+          approvedPatientEmail.rows[0].email,
+          appointment.patient_name,
+          dentistRecord.dentist_name,
+          appointment.appointment_date,
+          appointment.appointment_time
+        ).catch(() => {});
+      }
+
       // Notify receptionist
       if (receptionistUserId) {
         await createNotification(
@@ -958,7 +1112,7 @@ export async function respondToAppointment(
 
       // Also notify all active receptionists in case the original is unavailable
       const receptionists = await query(
-        `SELECT u.id AS user_id FROM users u
+        `SELECT u.id AS user_id, u.email, u.full_name FROM users u
          INNER JOIN receptionists r ON r.user_id = u.id
          WHERE u.is_active = true AND u.id != $1`,
         [receptionistUserId || 0]
@@ -971,6 +1125,44 @@ export async function respondToAppointment(
           NotificationType.APPOINTMENT_REJECTED,
           appointment.id
         );
+
+        // Email 5: Notify receptionist about dentist rejection
+        sendDentistRejectedNotificationEmail(
+          rec.email,
+          rec.full_name,
+          dentistRecord.dentist_name,
+          appointment.patient_name,
+          appointment.appointment_date,
+          data.rejectionReason
+        ).catch(() => {});
+      }
+
+      // Email 5: Also send to the original reviewing receptionist if not already included
+      if (receptionistUserId) {
+        const origRecEmail = await query('SELECT email, full_name FROM users WHERE id = $1', [receptionistUserId]);
+        if (origRecEmail.rows.length > 0) {
+          sendDentistRejectedNotificationEmail(
+            origRecEmail.rows[0].email,
+            origRecEmail.rows[0].full_name,
+            dentistRecord.dentist_name,
+            appointment.patient_name,
+            appointment.appointment_date,
+            data.rejectionReason
+          ).catch(() => {});
+        }
+      }
+
+      // Email 5 (patient side): Notify patient about dentist rejection
+      const rejectedPatientEmail = await query('SELECT email FROM users WHERE id = $1', [appointment.patient_user_id]);
+      if (rejectedPatientEmail.rows.length > 0) {
+        sendAppointmentRejectedEmail(
+          rejectedPatientEmail.rows[0].email,
+          appointment.patient_name,
+          appointment.appointment_date,
+          appointment.appointment_time,
+          data.rejectionReason,
+          'dentist'
+        ).catch(() => {});
       }
 
       return { id: appointment.id, status: AppointmentStatus.REJECTED };
@@ -995,6 +1187,22 @@ export async function respondToAppointment(
           NotificationType.APPOINTMENT_RESCHEDULED,
           appointment.id
         );
+
+        // Email 6: Notify receptionist about reschedule request
+        const recEmailResult = await query('SELECT email, full_name FROM users WHERE id = $1', [receptionistUserId]);
+        if (recEmailResult.rows.length > 0) {
+          sendAppointmentRescheduleEmail(
+            recEmailResult.rows[0].email,
+            recEmailResult.rows[0].full_name,
+            dentistRecord.dentist_name,
+            appointment.patient_name,
+            appointment.appointment_date,
+            appointment.appointment_time,
+            data?.suggestedDate,
+            data?.suggestedTime,
+            notes
+          ).catch(() => {});
+        }
       }
 
       // Notify patient
@@ -1005,6 +1213,22 @@ export async function respondToAppointment(
         NotificationType.APPOINTMENT_RESCHEDULED,
         appointment.id
       );
+
+      // Email 6: Notify patient about reschedule request
+      const patientRescheduleEmail = await query('SELECT email, full_name FROM users WHERE id = $1', [appointment.patient_user_id]);
+      if (patientRescheduleEmail.rows.length > 0) {
+        sendAppointmentRescheduleEmail(
+          patientRescheduleEmail.rows[0].email,
+          patientRescheduleEmail.rows[0].full_name,
+          dentistRecord.dentist_name,
+          appointment.patient_name,
+          appointment.appointment_date,
+          appointment.appointment_time,
+          data?.suggestedDate,
+          data?.suggestedTime,
+          notes
+        ).catch(() => {});
+      }
 
       return { id: appointment.id, status: AppointmentStatus.RESCHEDULED };
     }

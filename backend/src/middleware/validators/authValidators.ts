@@ -17,7 +17,7 @@ export const registerValidation = [
     .withMessage('Email is required.')
     .isEmail()
     .withMessage('Please provide a valid email address.')
-    .normalizeEmail(),
+    .normalizeEmail({ gmail_remove_subaddress: false }),
 
   body('password')
     .notEmpty()
@@ -74,7 +74,7 @@ export const loginValidation = [
     .withMessage('Email is required.')
     .isEmail()
     .withMessage('Please provide a valid email address.')
-    .normalizeEmail(),
+    .normalizeEmail({ gmail_remove_subaddress: false }),
 
   body('password')
     .notEmpty()
@@ -165,11 +165,10 @@ export const createStaffValidation = [
     .withMessage('Email is required.')
     .isEmail()
     .withMessage('Please provide a valid email address.')
-    .normalizeEmail(),
+    .normalizeEmail({ gmail_remove_subaddress: false }),
 
   body('password')
-    .notEmpty()
-    .withMessage('Password is required.')
+    .optional()
     .isLength({ min: 6 })
     .withMessage('Password must be at least 6 characters long.'),
 
@@ -240,7 +239,7 @@ export const adminUpdateUserValidation = [
     .trim()
     .isEmail()
     .withMessage('Please provide a valid email address.')
-    .normalizeEmail(),
+    .normalizeEmail({ gmail_remove_subaddress: false }),
 
   body('phoneNumber')
     .optional()

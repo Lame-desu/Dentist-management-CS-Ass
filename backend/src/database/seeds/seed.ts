@@ -63,8 +63,8 @@ async function seedUsers() {
   // ── Admin ──
   const adminHash = await hashPassword('admin123');
   await query(
-    `INSERT INTO users (id, full_name, email, phone_number, password_hash, role)
-     VALUES (1, 'System Administrator', 'admin@dams.com', '+251911000000', $1, 'admin')`,
+    `INSERT INTO users (id, full_name, email, phone_number, password_hash, role, is_email_verified)
+     VALUES (1, 'System Administrator', 'admin@dams.com', '+251911000000', $1, 'admin', true)`,
     [adminHash]
   );
   console.log('   ✅ Admin: admin@dams.com / admin123');
@@ -73,18 +73,18 @@ async function seedUsers() {
   const dentistHash = await hashPassword('dentist123');
 
   await query(
-    `INSERT INTO users (id, full_name, email, phone_number, password_hash, role)
-     VALUES (2, 'Dr. Abebe Kebede', 'abebe@dams.com', '+251912111111', $1, 'dentist')`,
+    `INSERT INTO users (id, full_name, email, phone_number, password_hash, role, is_email_verified)
+     VALUES (2, 'Dr. Abebe Kebede', 'abebe@dams.com', '+251912111111', $1, 'dentist', true)`,
     [dentistHash]
   );
   await query(
-    `INSERT INTO users (id, full_name, email, phone_number, password_hash, role)
-     VALUES (3, 'Dr. Tigist Haile', 'tigist@dams.com', '+251912222222', $1, 'dentist')`,
+    `INSERT INTO users (id, full_name, email, phone_number, password_hash, role, is_email_verified)
+     VALUES (3, 'Dr. Tigist Haile', 'tigist@dams.com', '+251912222222', $1, 'dentist', true)`,
     [dentistHash]
   );
   await query(
-    `INSERT INTO users (id, full_name, email, phone_number, password_hash, role)
-     VALUES (4, 'Dr. Solomon Tadesse', 'solomon@dams.com', '+251912333333', $1, 'dentist')`,
+    `INSERT INTO users (id, full_name, email, phone_number, password_hash, role, is_email_verified)
+     VALUES (4, 'Dr. Solomon Tadesse', 'solomon@dams.com', '+251912333333', $1, 'dentist', true)`,
     [dentistHash]
   );
   console.log('   ✅ 3 Dentists seeded');
@@ -93,13 +93,13 @@ async function seedUsers() {
   const receptionHash = await hashPassword('reception123');
 
   await query(
-    `INSERT INTO users (id, full_name, email, phone_number, password_hash, role)
-     VALUES (5, 'Meron Assefa', 'meron@dams.com', '+251913111111', $1, 'receptionist')`,
+    `INSERT INTO users (id, full_name, email, phone_number, password_hash, role, is_email_verified)
+     VALUES (5, 'Meron Assefa', 'meron@dams.com', '+251913111111', $1, 'receptionist', true)`,
     [receptionHash]
   );
   await query(
-    `INSERT INTO users (id, full_name, email, phone_number, password_hash, role)
-     VALUES (6, 'Hana Girma', 'hana@dams.com', '+251913222222', $1, 'receptionist')`,
+    `INSERT INTO users (id, full_name, email, phone_number, password_hash, role, is_email_verified)
+     VALUES (6, 'Hana Girma', 'hana@dams.com', '+251913222222', $1, 'receptionist', true)`,
     [receptionHash]
   );
   console.log('   ✅ 2 Receptionists seeded');
@@ -108,28 +108,28 @@ async function seedUsers() {
   const patientHash = await hashPassword('patient123');
 
   await query(
-    `INSERT INTO users (id, full_name, email, phone_number, password_hash, role)
-     VALUES (7, 'Dawit Mengistu', 'dawit@dams.com', '+251914111111', $1, 'patient')`,
+    `INSERT INTO users (id, full_name, email, phone_number, password_hash, role, is_email_verified)
+     VALUES (7, 'Dawit Mengistu', 'dawit@dams.com', '+251914111111', $1, 'patient', true)`,
     [patientHash]
   );
   await query(
-    `INSERT INTO users (id, full_name, email, phone_number, password_hash, role)
-     VALUES (8, 'Sara Tesfaye', 'sara@dams.com', '+251914222222', $1, 'patient')`,
+    `INSERT INTO users (id, full_name, email, phone_number, password_hash, role, is_email_verified)
+     VALUES (8, 'Sara Tesfaye', 'sara@dams.com', '+251914222222', $1, 'patient', true)`,
     [patientHash]
   );
   await query(
-    `INSERT INTO users (id, full_name, email, phone_number, password_hash, role)
-     VALUES (9, 'Yonas Bekele', 'yonas@dams.com', '+251914333333', $1, 'patient')`,
+    `INSERT INTO users (id, full_name, email, phone_number, password_hash, role, is_email_verified)
+     VALUES (9, 'Yonas Bekele', 'yonas@dams.com', '+251914333333', $1, 'patient', true)`,
     [patientHash]
   );
   await query(
-    `INSERT INTO users (id, full_name, email, phone_number, password_hash, role)
-     VALUES (10, 'Bethlehem Wolde', 'bethlehem@dams.com', '+251914444444', $1, 'patient')`,
+    `INSERT INTO users (id, full_name, email, phone_number, password_hash, role, is_email_verified)
+     VALUES (10, 'Bethlehem Wolde', 'bethlehem@dams.com', '+251914444444', $1, 'patient', true)`,
     [patientHash]
   );
   await query(
-    `INSERT INTO users (id, full_name, email, phone_number, password_hash, role)
-     VALUES (11, 'Kidus Alemu', 'kidus@dams.com', '+251914555555', $1, 'patient')`,
+    `INSERT INTO users (id, full_name, email, phone_number, password_hash, role, is_email_verified)
+     VALUES (11, 'Kidus Alemu', 'kidus@dams.com', '+251914555555', $1, 'patient', true)`,
     [patientHash]
   );
   console.log('   ✅ 5 Patients seeded');
