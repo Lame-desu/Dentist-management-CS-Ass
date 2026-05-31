@@ -108,7 +108,8 @@ export default function DentistDashboard() {
     loadDashboard();
   }, [loadDashboard]);
 
-  const lastName = user?.full_name?.split(' ').pop() || 'Doctor';
+  const nameParts = user?.full_name?.split(' ').filter(p => !p.startsWith('Dr')) || [];
+  const firstName = nameParts[0] || 'Doctor';
 
   if (loading) {
     return (
@@ -123,7 +124,7 @@ export default function DentistDashboard() {
       {/* Welcome */}
       <div>
         <h1 className="text-2xl font-bold text-surface-900 dark:text-white">
-          {getGreeting()}, Dr.&nbsp;{lastName} 🩺
+          {getGreeting()}, Dr.&nbsp;{firstName} 🩺
         </h1>
         <p className="mt-1 text-sm text-surface-500 dark:text-surface-400">
           Here&apos;s your schedule overview for today

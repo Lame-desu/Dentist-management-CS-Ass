@@ -10,10 +10,10 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: 'DAMS — Dentist Appointments & Management System',
+  title: 'Bright Smile Dental Clinic — Book Your Appointment Online',
   description:
-    'A comprehensive web-based platform for Ethiopian private dental clinics. Manage appointments, dental records, prescriptions, queue management, and notifications.',
-  keywords: ['dentist', 'appointments', 'dental clinic', 'management system', 'Ethiopia'],
+    'Welcome to Bright Smile Dental Clinic. Book appointments online, access your dental records, and experience modern dental care in Addis Ababa, Ethiopia.',
+  keywords: ['dentist', 'dental clinic', 'appointments', 'Addis Ababa', 'Ethiopia', 'dental care', 'teeth cleaning'],
 };
 
 export default function RootLayout({

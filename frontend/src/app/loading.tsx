@@ -17,7 +17,7 @@ export default function Loading() {
         </div>
 
         {/* Brand */}
-        <h2 className="mb-2 text-xl font-bold text-white">DAMS</h2>
+        <h2 className="mb-2 text-xl font-bold text-white">Bright Smile</h2>
         <p className="text-sm text-surface-400">Loading...</p>
 
         {/* Loading dots */}
